@@ -36,6 +36,8 @@ class OdooController(http.Controller):
         elif selector == 3:
             hoy = today + timedelta(days=14)
             date_ini, date_end = utils.interval_op_future(name_day, hoy)
+        elif selector == 4:
+            date_end = str(today) + '00:00:00'
         else:
             correct_call = False
             response = [{
@@ -56,10 +58,12 @@ class OdooController(http.Controller):
                     response = list()
                     transformStates = {'draft': 'Borrador', 'confirmed': 'Confirmado', 'planned': 'Planificado', 'progress': 'En proceso', 'done': 'Hecho', 'cancel': 'Cancelado'}
 
-                    production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '>=', date_ini), ('date_planned_start', '<=', date_end)], order = "state desc, date_planned_start desc")
-                
+                    if selector != 4:
+                        production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '>=', date_ini), ('date_planned_start', '<=', date_end)], order = "state desc, date_planned_start desc")
+                    else:
+                        production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '<=', date_end), ('state', '!=', 'done')], order="state desc, date_planned_start desc")
+                    
                     for production_order in production_orders:
-
                         date_op = str(production_order['date_planned_start'].strftime("%d/%m/%Y"))
                         past = datetime.strptime(date_op, "%d/%m/%Y")
                         present = datetime.now()
@@ -984,6 +988,22 @@ class OdooController(http.Controller):
         order_id = int(post.get('order'))
 
         try:
+             # Para encontrar el producto finalizado(En stock move)
+            producto_finalizado_stock_move = http.request.env['stock.move'].search([('production_id', '=', order_id)])
+            sm_id_prodfinalizado = producto_finalizado_stock_move[0].id
+
+            # Ahora a encontrar la línea de lote (En stock move line) (pf = producto finalizado)
+            pf = http.request.env['stock.move.line'].search([('move_id', '=', sm_id_prodfinalizado)])
+            lote_pf = pf[0].lot_id.id
+
+            # Ahora a recorrer todas las lineas de lote de la orden
+            lineas_mp = http.request.env['stock.move.line'].search([('production_id', '=', order_id)])
+            for linea in lineas_mp:
+                linea.write({
+                    "lot_produced_id": lote_pf
+                })
+            _logger.info('********* Ya ha asignado los lotes a todas las lineas *********')
+
             mi_orden = http.request.env['mrp.production'].search([('id', '=', order_id)])
             mi_orden.button_mark_done()
             

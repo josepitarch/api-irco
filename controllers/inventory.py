@@ -36,17 +36,19 @@ class Inventory(http.Controller):
                     lot_id =  producto['prod_lot_id'].id if producto['prod_lot_id'].id != False else -1
                     lot_name =  producto['prod_lot_id'].name if producto['prod_lot_id'].name != False else ""
                     
-                    obj = {
-                        "id": producto['id'],
-                        "product_id": producto['product_id'].id,
-                        "product_name": producto['product_id'].name + reference,
-                        "lot_id": lot_id,
-                        "lot_name": lot_name,
-                        "quantity_theoretical": producto['theoretical_qty'],
-                        "quantity_real": producto['product_qty'],
-                        "unity": producto['product_uom_id'].name
-                    }
-                    lista_productos.append(obj)
+                    quantity_theoretical = producto['theoretical_qty']
+                    if float(quantity_theoretical) > 0:
+                        obj = {
+                            "id": producto['id'],
+                            "product_id": producto['product_id'].id,
+                            "product_name": producto['product_id'].name + reference,
+                            "lot_id": lot_id,
+                            "lot_name": lot_name,
+                            "quantity_theoretical": producto['theoretical_qty'],
+                            "quantity_real": producto['product_qty'],
+                            "unity": producto['product_uom_id'].name
+                        }
+                        lista_productos.append(obj)
                 
                 aj = {
                     "id": ajuste['id'],
@@ -92,17 +94,19 @@ class Inventory(http.Controller):
                     lot_id =  producto['prod_lot_id'].id if producto['prod_lot_id'].id != False else -1
                     lot_name =  producto['prod_lot_id'].name if producto['prod_lot_id'].name != False else ""
                     
-                    obj = {
-                        "id": producto['id'],
-                        "product_id": producto['product_id'].id,
-                        "product_name": producto['product_id'].name + reference,
-                        "lot_id": lot_id,
-                        "lot_name": lot_name,
-                        "quantity_theoretical": producto['theoretical_qty'],
-                        "quantity_real": producto['product_qty'],
-                        "unity": producto['product_uom_id'].name
-                    }
-                    lista_productos.append(obj)
+                    quantity_theoretical = producto['theoretical_qty']
+                    if float(quantity_theoretical) > 0:
+                        obj = {
+                            "id": producto['id'],
+                            "product_id": producto['product_id'].id,
+                            "product_name": producto['product_id'].name + reference,
+                            "lot_id": lot_id,
+                            "lot_name": lot_name,
+                            "quantity_theoretical": producto['theoretical_qty'],
+                            "quantity_real": producto['product_qty'],
+                            "unity": producto['product_uom_id'].name
+                        }
+                        lista_productos.append(obj)
                 
                 aj = {
                     "id": ajuste['id'],
