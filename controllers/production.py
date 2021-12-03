@@ -37,7 +37,7 @@ class OdooController(http.Controller):
             hoy = today + timedelta(days=14)
             date_ini, date_end = utils.interval_op_future(name_day, hoy)
         elif selector == 4:
-            date_end = str(today) + '00:00:00'
+            date_end = str(today) + ' 00:00:00'
         else:
             correct_call = False
             response = [{
