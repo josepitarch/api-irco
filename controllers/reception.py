@@ -12,8 +12,6 @@ from odoo.addons.mrp.models.mrp_production import MrpProduction
 _logger = logging.getLogger(__name__)
 
 CORS = "*"
-
-
 class GetControllerPedidosRecepciones(http.Controller):
     
     # Controller para manejar todas las peticiones GET a la app, sobre "Pedidos y Recepciones"

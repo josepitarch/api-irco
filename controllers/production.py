@@ -61,14 +61,14 @@ class OdooController(http.Controller):
                     if selector != 4:
                         production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '>=', date_ini), ('date_planned_start', '<=', date_end)], order = "state desc, date_planned_start desc")
                     else:
-                        production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '<=', date_end), ('state', '!=', 'done')], order="state desc, date_planned_start desc")
+                        production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '<=', date_end), ('state', '!=', 'done'), ('state', '!=', 'cancel'), ('state', '!=', 'planned'), ('state', '!=', 'draft')], order="state desc, date_planned_start desc")
                     
                     for production_order in production_orders:
                         date_op = str(production_order['date_planned_start'].strftime("%d/%m/%Y"))
                         past = datetime.strptime(date_op, "%d/%m/%Y")
                         present = datetime.now()
                         
-                        if past.date() >= present.date():
+                        if past.date() >= present.date() or selector == 4:
                             state = transformStates.get(production_order['state'], 'No State')
                             raw_materials = list()
 
@@ -861,15 +861,37 @@ class OdooController(http.Controller):
     
     @http.route('/api/re/assign/lot', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
     def actualizar_lote_materiaprima(self, **post):
-        id_linea = int(post.get('lotline'))
-        lote = int(post.get('lot'))
+        id_lineas = str(post.get('lotline')).split('-')
+        lotes = str(post.get('lot')).split('-')
+        quantitys = str(post.get('quantity')).split('-')
+        products_id = str(post.get('productid')).split('-')
         
         try:
-            lote_name = http.request.env['stock.production.lot'].search([('id', '=', lote)])
-            lote_actualizado = http.request.env['stock.move.line'].search([('id', '=', id_linea)]).write({
-                "lot_id": lote,
-                "lot_name": lote_name[0].name,
-            })
+            for i in range(len(id_lineas)):
+                linea_lote = http.request.env['stock.move.line'].search([('id', '=', int(id_lineas[i]))])
+                if float(quantitys[i]) == 0:
+                    lote_creado = 0
+                    buscar_lote = http.request.env['stock.production.lot'].search([('product_id', '=', int(products_id[i])), ('name', '=', 'MateriaPrimaVacia')])
+                    if len(buscar_lote) > 0:
+                        lote_creado = buscar_lote[0].id
+                    else:
+                        nuevo_lote = http.request.env['stock.production.lot'].create({
+                            "name": "MateriaPrimaVacia",
+                            "product_id": int(products_id[i]),
+                        })
+                        lote_creado = nuevo_lote[0].id
+
+                    linea_lote.write({
+                        "product_id": int(products_id[i]),
+                        "lot_id": lote_creado, 
+                        "qty_done": float(quantitys[i]),
+                    })
+                else:
+                    linea_lote.write({
+                        "product_id": int(products_id),
+                        "lot_id": int(lotes[i]), 
+                        "qty_done": float(quantitys[i]),
+                    })
             response = {
                 'successful': True,
                 'message': 'Se ha actualizado el lote satisfactoriamente',
@@ -877,10 +899,12 @@ class OdooController(http.Controller):
             }
            
         except Exception as e:
-            response = {'successful': False,
-            'message': 'No se ha podido actualizar el lote',
-            'error': str(e)
-        }
+            response = {
+                'successful': False,
+                'message': 'No se ha podido actualizar el lote',
+                'error': str(e)
+            }
+            _logger.error(str(e))
         
         response = json.dumps(response)
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
@@ -988,7 +1012,7 @@ class OdooController(http.Controller):
         order_id = int(post.get('order'))
 
         try:
-             # Para encontrar el producto finalizado(En stock move)
+            # Para encontrar el producto finalizado(En stock move)
             producto_finalizado_stock_move = http.request.env['stock.move'].search([('production_id', '=', order_id)])
             sm_id_prodfinalizado = producto_finalizado_stock_move[0].id
 
@@ -1032,5 +1056,23 @@ class OdooController(http.Controller):
             response = {'successful': False, 'message': 'No se ha podido comprobar la disponibilidad de esta orden de producción', 'error': str(e)}
             _logger.error(str(e))
             
+        response = json.dumps(response)
+        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
+
+    # Endpoint (Quitar cantidades reservadas de la orden de producción) (Solo funciona en "CONFIRMADO" y "EN PROCESO")
+    @http.route('/api/unreserve/op', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
+    def quitar_cantidades_reservadas(self, **post):
+        id_orden = int(post.get('order'))
+        try:
+            mi_orden = http.request.env['mrp.production'].search([('id', '=', id_orden)])
+            _logger.info('************ Procede a llamar al metodo ************')
+            mi_orden.button_unreserve()
+            _logger.info('******************* Ya ha hecho el metodo *******************')
+            response = {'successful': True, 'message': 'Se han quitado las cantidades reservadas', 'error': ''}
+
+        except Exception as e:
+            response = {'successful': False, 'message': 'No se han podido quitar las cantidades reservadas', 'error': str(e)}
+            _logger.error(str(e))
+        
         response = json.dumps(response)
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
