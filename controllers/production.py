@@ -195,6 +195,10 @@ class OdooController(http.Controller):
                     
                     quantity = raw_material['product_uom_qty'] if state is not 'Borrador' else raw_material['product_qty']
                     
+                    if lot_id == False or lot_name == False:
+                        lot_id = -1
+                        lot_name = ""
+                    
                     current_rm = {
                         "id": raw_material['id'],
                         "product_id": raw_material['product_id'].id,
@@ -797,46 +801,49 @@ class OdooController(http.Controller):
     @http.route('/api/assign/lot', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
     def asignar_lote(self, **post):
         try:
-            id = int(post.get('id'))
-            product_id = int(post.get('productid'))
-            lot = int(post.get('lot'))
-            quantity = float(post.get('quantity'))
-            linea_mp = http.request.env['stock.move'].search([('id', '=', id)])
-            if quantity == 0:
-                lote_creado = 0
-                buscar_lote = http.request.env['stock.production.lot'].search([('product_id', '=', product_id), ('name', '=', 'MateriaPrimaVacia')])
-                if len(buscar_lote) > 0:
-                    lote_creado = buscar_lote[0].id
-                else:
-                    nuevo_lote = http.request.env['stock.production.lot'].create({
-                        "name": "MateriaPrimaVacia",
-                        "product_id": product_id,
-                    })
-                    lote_creado = nuevo_lote[0].id
-
-                asignar_lote = http.request.env['stock.move.line'].create({
-                    "move_id": id, 
-                    "product_id": product_id,
-                    "lot_id": lote_creado, 
-                    "qty_done": quantity,
-                    "product_uom_id": linea_mp[0].product_uom.id,
-                    "location_id": linea_mp[0].location_id.id,
-                    "location_dest_id": linea_mp[0].location_dest_id.id,
-                    "production_id": linea_mp[0].raw_material_production_id.id
-                })
-                
+            id = str(post.get('id')).split('-')
+            product_id = str(post.get('productid')).split('-')
+            lot = str(post.get('lot')).split('-')
+            quantity = str(post.get('quantity')).split('-')
             
-            else:
-                lote_asignado = http.request.env['stock.move.line'].create({
-                    "move_id": id, 
-                    "product_id": product_id,
-                    "lot_id": lot, 
-                    "qty_done": quantity,
-                    "product_uom_id": linea_mp[0].product_uom.id,
-                    "location_id": linea_mp[0].location_id.id,
-                    "location_dest_id": linea_mp[0].location_dest_id.id,
-                    "production_id": linea_mp[0].raw_material_production_id.id
-                })
+            for i in range(len(id)):
+                linea_mp = http.request.env['stock.move'].search([('id', '=', int(id[i]))])
+                linea_prod = http.request.env['product.product'].search([('id', '=', int(product_id[i]))])
+                if float(quantity[i]) == 0:
+                    lote_creado = 0
+                    buscar_lote = http.request.env['stock.production.lot'].search([('product_id', '=', int(product_id[i])), ('name', '=', 'MateriaPrimaVacia')])
+                    if len(buscar_lote) > 0:
+                        lote_creado = buscar_lote[0].id
+                    else:
+                        nuevo_lote = http.request.env['stock.production.lot'].create({
+                            "name": "MateriaPrimaVacia",
+                            "product_id": int(product_id[i]),
+                        })
+                        lote_creado = nuevo_lote[0].id
+
+                    asignar_lote = http.request.env['stock.move.line'].create({
+                        "move_id": int(id[i]), 
+                        "product_id": int(product_id[i]),
+                        "lot_id": lote_creado, 
+                        "qty_done": float(quantity[i]),
+                        "product_uom_id": linea_prod[0].uom_id.id,
+                        "location_id": linea_mp[0].location_id.id,
+                        "location_dest_id": linea_mp[0].location_dest_id.id,
+                        "production_id": linea_mp[0].raw_material_production_id.id
+                    })
+                    
+                
+                else:
+                    lote_asignado = http.request.env['stock.move.line'].create({
+                        "move_id": int(id[i]), 
+                        "product_id": int(product_id[i]),
+                        "lot_id": int(lot[i]), 
+                        "qty_done": float(quantity[i]),
+                        "product_uom_id": linea_prod[0].uom_id.id,
+                        "location_id": linea_mp[0].location_id.id,
+                        "location_dest_id": linea_mp[0].location_dest_id.id,
+                        "production_id": linea_mp[0].raw_material_production_id.id
+                    })
             
             response = {
                 'successful': True, 
@@ -865,7 +872,6 @@ class OdooController(http.Controller):
         lotes = str(post.get('lot')).split('-')
         quantitys = str(post.get('quantity')).split('-')
         products_id = str(post.get('productid')).split('-')
-        
         try:
             for i in range(len(id_lineas)):
                 linea_lote = http.request.env['stock.move.line'].search([('id', '=', int(id_lineas[i]))])
@@ -888,7 +894,7 @@ class OdooController(http.Controller):
                     })
                 else:
                     linea_lote.write({
-                        "product_id": int(products_id),
+                        "product_id": int(products_id[i]),
                         "lot_id": int(lotes[i]), 
                         "qty_done": float(quantitys[i]),
                     })
