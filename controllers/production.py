@@ -50,6 +50,13 @@ class OdooController(http.Controller):
 
             datosalmacenes = http.request.env['res.users'].search([('id', '=', userid)]).almacenes
 
+            if(len(datosalmacenes) == 0):
+                response = [{
+                    "successful": False,
+                    "message": "Este usuario no tiene un almacén asignado",
+                    "error": "Este usuario no tiene un almacén asignado"
+                }]
+
             for almacen in datosalmacenes:
                 try:
 
@@ -142,17 +149,17 @@ class OdooController(http.Controller):
                             response.append(dish)
 
                 except Exception as e:
-                    response.append({
+                    response = [{
                         "message": {
                             "successful": False,
                             "message": "No se ha podido obtener las órdenes de producción",
                             "error": str(e) + " ID Order Production Failed = " + str(production_order['id'])
                         }    
-                    })
+                    }]
 
                     _logger.error(str(e))
         
-        response = json.dumps(response)
+            response = json.dumps(response)
 
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
  
