@@ -1089,3 +1089,35 @@ class OdooController(http.Controller):
         
         response = json.dumps(response)
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
+
+    # Endpoint (cambiar cantidades reservadas)
+    @http.route('/api/change/reserved/mp', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
+    def cambiar_materias_primas_reservadas(self, **post):
+        id_orden = int(post.get('order'))
+
+        try:
+            lineas_mp = http.request.env['stock.move'].search([('raw_material_production_id', '=', id_orden)])
+            
+            for linea in lineas_mp:
+                linea_id = linea['id']
+
+                lineas_lote = http.request.env['stock.move.line'].search([('move_id', '=', linea_id)])
+
+                if len(lineas_lote) > 0:
+                    for linea_lote in lineas_lote:
+                        
+                        if linea_lote['product_uom_qty']>0:
+                            reservado = linea_lote['product_uom_qty']
+                            linea_lote.write({
+                                "qty_done": reservado,
+                            })
+
+            response = {'successful': True, 'message': 'Se han quitado las cantidades reservadas', 'error': ''}
+
+        except Exception as e:
+            response = {'successful': False, 'message': 'No se han podido quitar las cantidades reservadas', 'error': str(e)}
+            _logger.error(str(e))
+        
+        response = json.dumps(response)
+        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
+
