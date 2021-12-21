@@ -58,19 +58,18 @@ class OdooController(http.Controller):
                 }]
 
             for almacen in datosalmacenes:
-                try:
+                stock = http.request.env['stock.warehouse'].search([('id', '=', almacen.id)])
+            
+                response = list()
+                transformStates = {'draft': 'Borrador', 'confirmed': 'Confirmado', 'planned': 'Planificado', 'progress': 'En proceso', 'done': 'Hecho', 'cancel': 'Cancelado'}
 
-                    stock = http.request.env['stock.warehouse'].search([('id', '=', almacen.id)])
+                if selector != 4:
+                    production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '>=', date_ini), ('date_planned_start', '<=', date_end)], order = "state desc, date_planned_start desc")
+                else:
+                    production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '<=', date_end), ('state', '!=', 'done'), ('state', '!=', 'cancel'), ('state', '!=', 'planned'), ('state', '!=', 'draft')], order="state desc, date_planned_start desc")
                 
-                    response = list()
-                    transformStates = {'draft': 'Borrador', 'confirmed': 'Confirmado', 'planned': 'Planificado', 'progress': 'En proceso', 'done': 'Hecho', 'cancel': 'Cancelado'}
-
-                    if selector != 4:
-                        production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '>=', date_ini), ('date_planned_start', '<=', date_end)], order = "state desc, date_planned_start desc")
-                    else:
-                        production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '<=', date_end), ('state', '!=', 'done'), ('state', '!=', 'cancel'), ('state', '!=', 'planned'), ('state', '!=', 'draft')], order="state desc, date_planned_start desc")
-                    
-                    for production_order in production_orders:
+                for production_order in production_orders:
+                    try:
                         date_op = str(production_order['date_planned_start'].strftime("%d/%m/%Y"))
                         past = datetime.strptime(date_op, "%d/%m/%Y")
                         present = datetime.now()
@@ -148,16 +147,16 @@ class OdooController(http.Controller):
 
                             response.append(dish)
 
-                except Exception as e:
-                    response = [{
-                        "message": {
-                            "successful": False,
-                            "message": "No se ha podido obtener las órdenes de producción",
-                            "error": str(e) + " ID Order Production Failed = " + str(production_order['id'])
-                        }    
-                    }]
+                    except Exception as e:
+                        # response = [{
+                        #     "message": {
+                        #         "successful": False,
+                        #         "message": "No se ha podido obtener las órdenes de producción",
+                        #         "error": str(e) + " ID Order Production Failed = " + str(production_order['id'])
+                        #     }    
+                        # }]
 
-                    _logger.error(str(e))
+                        _logger.error(str(e))
         
             response = json.dumps(response)
 
@@ -1120,4 +1119,3 @@ class OdooController(http.Controller):
         
         response = json.dumps(response)
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
-
