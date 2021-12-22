@@ -297,9 +297,9 @@ class GetControllerPedidosRecepciones(http.Controller):
                 if recepcion['backorder_id']: 
                     original = recepcion['backorder_id'].name
                 
-                albaran_prov = ""
+                delivery_note = ""
                 if recepcion['albaran_proveedor']:
-                    albaran_prov = recepcion['albaran_proveedor']
+                    delivery_note = recepcion['albaran_proveedor']
 
                 productos = http.request.env['stock.move'].search([('picking_id', '=', recepcion_id)])
                 
@@ -323,9 +323,9 @@ class GetControllerPedidosRecepciones(http.Controller):
                         "supplier": recepcion['partner_id'].name,
                         "origin": recepcion['origin'],
                         "original": original,
+                        "delivery_note": delivery_note,
                         "state": state,
                         "products": lista_productos,
-                        "provider_reception": albaran_prov
                     }
 
                     response.append(rc)
@@ -366,6 +366,10 @@ class GetControllerPedidosRecepciones(http.Controller):
                 if recepcion['backorder_id']: 
                     original = recepcion['backorder_id'].name
 
+                delivery_note = ""
+                if recepcion['albaran_proveedor']:
+                    delivery_note = recepcion['albaran_proveedor']
+
                 products = http.request.env['stock.move'].search([('picking_id', '=', recepcion_id)])
                 
                 for product in products:
@@ -386,6 +390,7 @@ class GetControllerPedidosRecepciones(http.Controller):
                     "supplier": recepcion['partner_id'].name,
                     "origin": recepcion['origin'],
                     "original": original,
+                    "delivery_note": delivery_note,
                     "state": state,
                     "products": lista_productos,
                 }
