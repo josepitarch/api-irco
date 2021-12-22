@@ -296,6 +296,10 @@ class GetControllerPedidosRecepciones(http.Controller):
                 original = ""
                 if recepcion['backorder_id']: 
                     original = recepcion['backorder_id'].name
+                
+                albaran_prov = ""
+                if recepcion['albaran_proveedor']:
+                    albaran_prov = recepcion['albaran_proveedor']
 
                 productos = http.request.env['stock.move'].search([('picking_id', '=', recepcion_id)])
                 
@@ -321,6 +325,7 @@ class GetControllerPedidosRecepciones(http.Controller):
                         "original": original,
                         "state": state,
                         "products": lista_productos,
+                        "provider_reception": albaran_prov
                     }
 
                     response.append(rc)
@@ -1089,6 +1094,26 @@ class GetControllerPedidosRecepciones(http.Controller):
             response = {'successful': False, 'message': 'No se ha podido crear una entrega no parcial de esta recepción', 'error': str(e)}
             _logger.error(str(e))
         
+        response = json.dumps(response)
+
+        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
+
+    # Endpoint (Actualizar campo "Albarán de proveedor" en la recepción)
+    @http.route('/api/update/provider/reception', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
+    def actualizar_albaran_de_proveedor_recepcion(self, **post):
+        id_recepcion = int(post.get('reception'))
+        albaran_proveedor = post.get('albcode')
+
+        try:
+            recepcion = http.request.env['stock.picking'].search([('id', '=', id_recepcion)])
+            recepcion.write({
+                'albaran_proveedor': albaran_proveedor,
+            })
+            response = {'successful': True, 'message': 'Se ha actualizado el albarán del proveedor satisfactoriamente', 'error': ''}
+        except Exception as e:
+            response = {'successful': False, 'message': 'No se ha podido actualizar el albarán de proveedor', 'error': str(e)}
+            _logger.error(str(e))
+
         response = json.dumps(response)
 
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)

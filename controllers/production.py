@@ -66,7 +66,7 @@ class OdooController(http.Controller):
                 if selector != 4:
                     production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '>=', date_ini), ('date_planned_start', '<=', date_end)], order = "state desc, date_planned_start desc")
                 else:
-                    production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '<=', date_end), ('state', '!=', 'done'), ('state', '!=', 'cancel'), ('state', '!=', 'planned'), ('state', '!=', 'draft')], order="state desc, date_planned_start desc")
+                    production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '<=', date_end), ('state', '!=', 'done'), ('state', '!=', 'cancel')], order="state desc, date_planned_start desc")
                 
                 for production_order in production_orders:
                     try:
@@ -741,16 +741,16 @@ class OdooController(http.Controller):
             mp_id = int(post.get('id'))
             product_id = int(post.get('product'))
             quantity = float(post.get('quantity'))
-            reserved = float(post.get('reserved'))
-            done = float(post.get('done'))
+            #reserved = float(post.get('reserved'))
+            #done = float(post.get('done'))
        
             producto_completo = http.request.env['product.product'].search([('id', '=', product_id)])
             actualizar_mp = http.request.env['stock.move'].search([('id', '=', mp_id)]).write({
                 "product_id": product_id,
                 "product_uom_qty": quantity,
                 "product_uom": producto_completo[0].uom_id.id,
-                "reserved_availability": reserved,
-                "quantity_done": done,
+                #"reserved_availability": reserved,
+                #"quantity_done": done,
             })
             
             response = {
