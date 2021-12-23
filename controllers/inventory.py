@@ -37,7 +37,7 @@ class Inventory(http.Controller):
                     lot_name =  producto['prod_lot_id'].name if producto['prod_lot_id'].name != False else ""
                     
                     quantity_theoretical = producto['theoretical_qty']
-                    if float(quantity_theoretical) > 0:
+                    if float(quantity_theoretical) >= 0:
                         obj = {
                             "id": producto['id'],
                             "product_id": producto['product_id'].id,
@@ -95,7 +95,7 @@ class Inventory(http.Controller):
                     lot_name =  producto['prod_lot_id'].name if producto['prod_lot_id'].name != False else ""
                     
                     quantity_theoretical = producto['theoretical_qty']
-                    if float(quantity_theoretical) > 0:
+                    if float(quantity_theoretical) >= 0:
                         obj = {
                             "id": producto['id'],
                             "product_id": producto['product_id'].id,
@@ -300,23 +300,33 @@ class Inventory(http.Controller):
     def crear_producto_de_ajuste(self, **post):
         id_ajuste = int(post.get('id'))
         id_producto = int(post.get('productid'))
-        id_lote = int(post.get('lot'))
         cant_teorica = float(post.get('quantityTheo'))
         cant_real = float(post.get('quantityReal'))
         
         try:
+            hoy = str(date.today().strftime("%d/%m/%Y"))
             ajuste_especifico = http.request.env['stock.inventory'].search([('id', '=', id_ajuste)])
             almacen = ajuste_especifico[0].location_id.id
+            padre = ajuste_especifico[0].location_id.location_id.name
           
             producto = http.request.env['product.product'].search([('id', '=', id_producto)])
             tipo = producto[0].uom_id.id
-        
+
+            nombre_lote = hoy + '/' + str(padre) + '/99999'
+
+            nuevo_lote = http.request.env['stock.production.lot'].create({
+                "name": nombre_lote,
+                "product_id": id_producto,
+            })
+
+            _logger.info('*********** Lote nuevo creado ***********')
+
             nuevo_producto_ajuste = http.request.env['stock.inventory.line'].create({
                 "inventory_id": id_ajuste,
                 "product_id": id_producto, 
                 "product_uom_id": tipo,
                 "location_id": almacen,
-                "prod_lot_id": id_lote,
+                "prod_lot_id": nuevo_lote[0].id,
                 "theoretical_qty": cant_teorica,
                 "product_qty": cant_real,
             })

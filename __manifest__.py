@@ -6,7 +6,7 @@
         Ejemplo de controlador para API""",
 
     'description': """
-        Ejemplo de controlador para probar y crear una API competente
+        API del servidor de ODOO para dar servicio más dispositivos de IRCO
     """,
 
     'author': "Jorge Jimenez HSCO",
@@ -16,7 +16,7 @@
     # Check https://github.com/odoo/odoo/blob/12.0/odoo/addons/base/data/ir_module_category_data.xml
     # for the full list
     'category': 'Uncategorized',
-    'version': '0.1',
+    'version': '5.1.1',
 
     # any module necessary for this one to work correctly
     'depends': ['base'],

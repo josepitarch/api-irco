@@ -623,6 +623,78 @@ class GetControllerPedidosRecepciones(http.Controller):
             _logger.info([mi_recepcion.id, mi_recepcion.name, mi_recepcion.origin, mi_recepcion.note, mi_recepcion.backorder_id, mi_recepcion.move_type, mi_recepcion.state, mi_recepcion.group_id, mi_recepcion.priority, mi_recepcion.scheduled_date, mi_recepcion.date, mi_recepcion.date_done, mi_recepcion.location_id, mi_recepcion.location_dest_id, mi_recepcion.picking_type_id, mi_recepcion.partner_id, mi_recepcion.company_id, mi_recepcion.owner_id, mi_recepcion.printed, mi_recepcion.is_locked, mi_recepcion.immediate_transfer, mi_recepcion.message_main_attachment_id, mi_recepcion.create_uid, mi_recepcion.create_date, mi_recepcion.write_uid, mi_recepcion.write_date, mi_recepcion.sale_id, mi_recepcion.batch_id, mi_recepcion.customer_signature, mi_recepcion.signer_name, mi_recepcion.ruta])
             auxiliar = mi_recepcion.button_validate()
 
+            for pick_id in mi_recepcion:
+                partner_id = pick_id.partner_id.id
+                alb_prov = pick_id.albaran_proveedor
+                origin = pick_id.origin
+                pedido_compra = http.request.env['purchase.order'].search([('name', '=', origin)])
+                albaran_padre_devolucion = pick_id.parent_picking_id
+
+                if not albaran_padre_devolucion:
+                    if pedido_compra:
+                        if alb_prov:
+                            lines = []    
+                            for linea_pedido in pedido_compra.order_line:
+                                if linea_pedido.qty_to_invoice > 0:
+                                    taxes = linea_pedido.product_id.taxes_id
+                                    tax_ids = taxes.ids
+                                    lineas = (0, 0, {'product_id' : linea_pedido.product_id.id,
+                                                    'name' : linea_pedido.product_id.name,
+                                                    'quantity' : linea_pedido.qty_to_invoice,
+                                                    'price_unit': linea_pedido.price_unit,
+                                                    'account_analytic_id': linea_pedido.account_analytic_id.id,
+                                                    'account_id': 357,
+                                                    'purchase_line_id': linea_pedido.id,
+                                                    'uom_id': linea_pedido.product_uom.id,
+                                                    'invoice_line_tax_ids': [(6, 0, tax_ids)]
+                                                    })
+                                    lines.append(lineas)
+                            data_factura = {
+                                    'partner_id': partner_id,
+                                    'reference': alb_prov,
+                                    'type': 'in_invoice',
+                                    'origin': origin,
+                                    'account_id': pick_id.partner_id.property_account_payable_id.id,
+                                    'payment_mode_id': pick_id.partner_id.supplier_payment_mode_id.id,
+                                    'purchase_id': pedido_compra.id,
+                                    'picking_id': pick_id.id,
+                                    'fecha_recep_alb': pick_id.date_done,
+                                    'invoice_line_ids': lines,
+                            }
+                            factura = http.request.env['account.invoice'].create(data_factura) 
+                        else:
+                            response = {
+                                'successful': False,
+                                'message': 'Se ha podido validar la recepcion, pero no se ha podido realizar la factura',
+                                'error': 'No dispone del albarán de proveedor'
+                            }
+                else:
+                    factura = http.request.env['account.invoice'].search([('picking_id', '=', albaran_padre_devolucion.id)])
+                    if factura:
+                        if factura.state == 'draft':
+                            for linea_albaran in pick_id.move_ids_without_package:
+                                cantidad = (linea_albaran.product_uom._compute_quantity(linea_albaran.quantity_done, linea_albaran.product_id.uom_po_id))*-1
+                                precio_linea_factura = http.request.env['account.invoice.line'].search([('invoice_id', '=', factura.id),('product_id', '=', linea_albaran.product_id.id)])
+                                taxes = linea_albaran.product_id.taxes_id
+                                tax_ids = taxes.ids
+                                linea_devolucion = {
+                                            'invoice_id': factura.id,
+                                            'product_id': linea_albaran.product_id.id,
+                                            'name' : linea_albaran.product_id.name,
+                                            'quantity' : cantidad,
+                                            'uom_id': linea_albaran.unidad_medida_compra.id,
+                                            'price_unit': precio_linea_factura.price_unit,
+                                            'account_analytic_id': linea_albaran.analytic_account_id.id,
+                                            'account_id': 357,
+                                            'invoice_line_tax_ids': [(6, 0, tax_ids)]
+                                        }
+                                factura_act = http.request.env['account.invoice.line'].create(linea_devolucion)
+                            factura._onchange_invoice_line_ids()
+                            factura._compute_amount()                     
+                        else:
+                            data_refund = 'refund'
+                            http.request.env['account.invoice.refund'].genera_factura_rectificativa_desde_albaranes(factura, data_refund)
+
             response = {
                 'successful': True,
                 'message': 'Se ha validado la recepción satisfactoriamente',
