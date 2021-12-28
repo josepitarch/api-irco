@@ -704,7 +704,7 @@ class GetControllerPedidosRecepciones(http.Controller):
         except Exception as e:
             response = {
                 'successful': False,
-                'message': 'No se ha podido validar la recepcion',
+                'message': 'No se ha podido validar la recepción',
                 'error': str(e)
             }
 

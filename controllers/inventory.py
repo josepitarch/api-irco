@@ -192,6 +192,8 @@ class Inventory(http.Controller):
                 "company_id": 1,
             })
 
+            nuevo_ajuste._obtiene_cuenta_analitica_almacen()
+
             response = {
                 'successful': True,
                 'message': 'Se ha creado un nuevo ajuste de inventario satisfactoriamente',
