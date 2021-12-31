@@ -37,18 +37,18 @@ class Inventory(http.Controller):
                     lot_name =  producto['prod_lot_id'].name if producto['prod_lot_id'].name != False else ""
                     
                     quantity_theoretical = producto['theoretical_qty']
-                    if float(quantity_theoretical) >= 0:
-                        obj = {
-                            "id": producto['id'],
-                            "product_id": producto['product_id'].id,
-                            "product_name": producto['product_id'].name + reference,
-                            "lot_id": lot_id,
-                            "lot_name": lot_name,
-                            "quantity_theoretical": producto['theoretical_qty'],
-                            "quantity_real": producto['product_qty'],
-                            "unity": producto['product_uom_id'].name
-                        }
-                        lista_productos.append(obj)
+                    
+                    obj = {
+                        "id": producto['id'],
+                        "product_id": producto['product_id'].id,
+                        "product_name": producto['product_id'].name + reference,
+                        "lot_id": lot_id,
+                        "lot_name": lot_name,
+                        "quantity_theoretical": quantity_theoretical,
+                        "quantity_real": producto['product_qty'],
+                        "unity": producto['product_uom_id'].name
+                    }
+                    lista_productos.append(obj)
                 
                 aj = {
                     "id": ajuste['id'],
@@ -95,18 +95,18 @@ class Inventory(http.Controller):
                     lot_name =  producto['prod_lot_id'].name if producto['prod_lot_id'].name != False else ""
                     
                     quantity_theoretical = producto['theoretical_qty']
-                    if float(quantity_theoretical) >= 0:
-                        obj = {
-                            "id": producto['id'],
-                            "product_id": producto['product_id'].id,
-                            "product_name": producto['product_id'].name + reference,
-                            "lot_id": lot_id,
-                            "lot_name": lot_name,
-                            "quantity_theoretical": producto['theoretical_qty'],
-                            "quantity_real": producto['product_qty'],
-                            "unity": producto['product_uom_id'].name
-                        }
-                        lista_productos.append(obj)
+                   
+                    obj = {
+                        "id": producto['id'],
+                        "product_id": producto['product_id'].id,
+                        "product_name": producto['product_id'].name + reference,
+                        "lot_id": lot_id,
+                        "lot_name": lot_name,
+                        "quantity_theoretical": quantity_theoretical,
+                        "quantity_real": producto['product_qty'],
+                        "unity": producto['product_uom_id'].name
+                    }
+                    lista_productos.append(obj)
                 
                 aj = {
                     "id": ajuste['id'],
@@ -356,8 +356,8 @@ class Inventory(http.Controller):
     
     @http.route('/api/update/products/inventory/adjustment', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
     def actualizar_producto_de_ajuste(self, **post):
-        ids = str(post.get('ids')).split('-')
-        quantitys = str(post.get('quantitys')).split('-')
+        ids = str(post.get('ids')).split(',')
+        quantitys = str(post.get('quantitys')).split(',')
 
         try:
             for i in range(len(quantitys)):
@@ -401,143 +401,3 @@ class Inventory(http.Controller):
         response = json.dumps(response)
 
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
-
-    
-    
-    
-    
-    
-    
-    # Endpoint (Crear una merma cuyo almacen de desecho sea "CONSUMO PROPIO") (Modelo: stock.scrap)
-    @http.route('/api/create/consumes/scrap', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
-    def crear_merma_consumo(self, **post):
-        id_producto = int(post.get('productid'))
-        cantidad = float(post.get('quantity'))
-        lote = int(post.get('lot'))
-        almacen = int(post.get('store'))
-        
-        try:
-            producto = http.request.env['product.product'].search([('id', '=', id_producto)])
-            tipo = producto[0].uom_id.id
-            tipo_almacen = http.request.env['stock.warehouse'].search([('id', '=', almacen)])
-            al_stock = tipo_almacen[0].lot_stock_id.id
-            ubicacion_padre = http.request.env['stock.location'].search([('id', '=', al_stock)])
-            parent_location = ubicacion_padre[0].location_id.id
-            ubicacion_desecho = http.request.env['stock.location'].search([('location_id', '=', parent_location), ('usage', '=', 'inventory'), ('scrap_location', '=', True), ('name', '=', 'Consumo propio')])
-
-            if len(ubicacion_desecho) > 0:
-                nueva_merma = http.request.env['stock.scrap'].create({
-                    "product_id": id_producto,
-                    "scrap_qty": cantidad,
-                    "product_uom_id": tipo,
-                    "lot_id": lote,
-                    "location_id": al_stock,
-                    "scrap_location_id": ubicacion_desecho[0].id
-                })
-                response = {
-                    'successful': True,
-                    'message': 'Se ha creado la merma de consumo correctamente',
-                    'error': ''
-                }
-               
-            else: 
-                response = {
-                    'successful': False,
-                    'message': 'No hay una ubicacion de desecho creada para el usuario',
-                    'error': ''
-                }
-            
-        except Exception as e:
-            response = {
-                'successful': False,
-                'message': 'No se ha podido crear la merma',
-                'error': str(e)
-            }
-
-            _logger.error(str(e))
-        
-        response = json.dumps(response)
-
-        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
-
-    # Endpoint (Crear una merma cuyo almacen de desecho sea "BASURA") (Modelo: stock.scrap)
-    @http.route('/api/create/trash/scrap', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
-    def crear_merma_basura(self, **post):
-        id_producto = int(post.get('productid'))
-        cantidad = float(post.get('quantity'))
-        lote = int(post.get('lot'))
-        almacen = int(post.get('store'))
-        
-        try:
-            producto = http.request.env['product.product'].search([('id', '=', id_producto)])
-            tipo = producto[0].uom_id.id
-            tipo_almacen = http.request.env['stock.warehouse'].search([('id', '=', almacen)])
-            al_stock = tipo_almacen[0].lot_stock_id.id
-            ubicacion_padre = http.request.env['stock.location'].search([('id', '=', al_stock)])
-            parent_location = ubicacion_padre[0].location_id.id
-        
-            ubicacion_desecho = http.request.env['stock.location'].search([('location_id', '=', parent_location), ('usage', '=', 'inventory'), ('scrap_location', '=', True), ('name', '=', 'Basura')])
-
-            if len(ubicacion_desecho) > 0:
-                nueva_merma = http.request.env['stock.scrap'].create({
-                    "product_id": id_producto,
-                    "scrap_qty": cantidad,
-                    "product_uom_id": tipo,
-                    "lot_id": lote,
-                    "location_id": al_stock,
-                    "scrap_location_id": ubicacion_desecho[0].id
-                })
-
-                response = {
-                    'successful': True,
-                    'message': 'Se ha creado la merma de basura correctamente',
-                    'error': ''
-                }
-             
-            else: 
-                response = {
-                    'successful': False,
-                    'message': 'No hay una ubicacion de desecho creada para el usuario',
-                    'error': ''
-                }
-     
-        except Exception as e:
-            response = {
-                'successful': False,
-                'message': 'Ha habido un error en el servidor y no se ha podido crear la merma',
-                'error': str(e)
-            }
-
-            _logger.error(str(e))
-       
-        response = json.dumps(response)
-
-        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
-
-    # Endpoint (Validar una merma) (Modelo: stock.scrap)
-    @http.route('/api/validate/scrap', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
-    def validar_merma(self, **post): 
-        id_merma = int(post.get('depletion'))
-
-        try:
-            mi_ajuste = http.request.env['stock.scrap'].search([('id', '=', id_merma)])
-            mi_ajuste.action_validate()
-
-            response = {
-                'successful': True,
-                'message': 'Se ha realizado una solicitud de validación correctamente',
-                'error': ''
-            }
-           
-        except Exception as e:
-            response = {
-                'successful': False,
-                'message': 'No se ha podido realizar la solicitud de validación',
-                'error': str(e)
-            }
-
-            _logger.error(str(e))
-        
-        response = json.dumps(response)
-
-        return Response(response, content_type = 'application/json;charset=utf-8', status = 200) 

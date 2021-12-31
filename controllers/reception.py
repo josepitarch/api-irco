@@ -636,7 +636,7 @@ class GetControllerPedidosRecepciones(http.Controller):
                             lines = []    
                             for linea_pedido in pedido_compra.order_line:
                                 if linea_pedido.qty_to_invoice > 0:
-                                    taxes = linea_pedido.product_id.taxes_id
+                                    taxes = linea_pedido.product_id.supplier_taxes_id
                                     tax_ids = taxes.ids
                                     lineas = (0, 0, {'product_id' : linea_pedido.product_id.id,
                                                     'name' : linea_pedido.product_id.name,
@@ -675,7 +675,7 @@ class GetControllerPedidosRecepciones(http.Controller):
                             for linea_albaran in pick_id.move_ids_without_package:
                                 cantidad = (linea_albaran.product_uom._compute_quantity(linea_albaran.quantity_done, linea_albaran.product_id.uom_po_id))*-1
                                 precio_linea_factura = http.request.env['account.invoice.line'].search([('invoice_id', '=', factura.id),('product_id', '=', linea_albaran.product_id.id)])
-                                taxes = linea_albaran.product_id.taxes_id
+                                taxes = linea_albaran.product_id.supplier_taxes_id
                                 tax_ids = taxes.ids
                                 linea_devolucion = {
                                             'invoice_id': factura.id,

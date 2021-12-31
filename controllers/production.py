@@ -378,6 +378,7 @@ class OdooController(http.Controller):
                 raw_material = {
                     "product_id": producto['id'],
                     "full_name": full_name,
+                    "name": name,
                     "unity": producto['uom_id'].name
                 }
                 response.append(raw_material)
@@ -695,15 +696,10 @@ class OdooController(http.Controller):
             producto_id = int(post.get('product'))
             orden_id = int(post.get( 'op'))
             cantidad = float(post.get('quantity'))
-
-
-            _logger.info('*************** Producto *************** %s'%producto_id)
-            _logger.info('*************** Orden *************** %s'%orden_id)
-        
             producto_completo = http.request.env['product.product'].search([('id', '=', producto_id)])
             orden_completa = http.request.env['mrp.production'].search([('id', '=', orden_id)])
             nombre_orden = orden_completa[0].name
-            _logger.info('************ Nombre de la orden ************* %s'%nombre_orden)
+            
             nueva_mp = http.request.env['stock.move'].create({
                 "product_id": producto_id,
                 "name": nombre_orden,
@@ -755,7 +751,7 @@ class OdooController(http.Controller):
             
             response = {
                 'successful': True, 
-                'message': 'Materia actualizada correctamente',
+                'message': 'La materia prima se ha actualizado satisfactoriamente',
                 'error': ''
             }
         
@@ -772,8 +768,6 @@ class OdooController(http.Controller):
         
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
 
-     # ENDPOINT 12 (Eliminar materia prima)
-    
     # ENDPOINT 14 (Eliminar materia prima de la orden)
     @http.route('/api/delete/mp/op', type='http', auth = 'user', cors=CORS, methods=['POST'], csrf=False)
     def eliminar_mp(self, **post):
@@ -786,7 +780,7 @@ class OdooController(http.Controller):
             })
             response = {
                 'successful': True, 
-                'message': 'Se ha eliminado la materia prima correctamente', 
+                'message': 'La materia prima se ha eliminado satisfactoriamente', 
                 'error': ''
             }
            
@@ -853,7 +847,7 @@ class OdooController(http.Controller):
             
             response = {
                 'successful': True, 
-                'message': 'Lote asignado correctamente',
+                'message': 'Se ha asignado el lote satisfactoriamente',
                 'error': ''
             }
             
@@ -928,43 +922,51 @@ class OdooController(http.Controller):
         try:
             
             orden = http.request.env['mrp.production'].search([('id', '=', order_id)])
-            cantidad = orden[0].product_qty
-            id_producto = orden[0].product_id.id
-            producto_uom = orden[0].product_uom_id.id
-            nombre = orden[0].name
-            lista_nombre = nombre.split('/')
-            aux = int(lista_nombre[2])
+            if orden[0].state == 'confirmed':
+                cantidad = orden[0].product_qty
+                id_producto = orden[0].product_id.id
+                producto_uom = orden[0].product_uom_id.id
+                nombre = orden[0].name
+                lista_nombre = nombre.split('/')
+                aux = int(lista_nombre[2])
+                
+                linea_orden = http.request.env['stock.move'].search([('production_id', '=', order_id)])
+                id_linea = linea_orden[0].id
+                location_id = linea_orden[0].location_id.id
+                location_dest_id = linea_orden[0].location_dest_id.id
+                hoy = str(date.today().strftime("%d/%m/%Y")) + '/' + str(aux)
+                
+                orden.write({
+                    "state": "progress",
+                })
+
+                nuevo_lote = http.request.env['stock.production.lot'].create({
+                    "name": hoy,
+                    "product_id": id_producto,
+                })
+
+                nuevo_producto_finalizado = http.request.env['stock.move.line'].create({
+                    "move_id": id_linea,
+                    "product_id": id_producto,
+                    "product_uom_id": producto_uom,
+                    "qty_done": cantidad,
+                    "lot_id": nuevo_lote[0].id,
+                    "location_id": location_id,
+                    "location_dest_id": location_dest_id,
+                })
+
+                response = {
+                    'successful': True, 
+                    'message': 'Se ha producido la orden de producción correctamente', 
+                    'error': ''
+                }
+            else:
+                response = {
+                    'successful': False, 
+                    'message': 'Esta orden de producción ya se encuentra en proceso', 
+                    'error': ''
+                }
             
-            linea_orden = http.request.env['stock.move'].search([('production_id', '=', order_id)])
-            id_linea = linea_orden[0].id
-            location_id = linea_orden[0].location_id.id
-            location_dest_id = linea_orden[0].location_dest_id.id
-            hoy = str(date.today().strftime("%d/%m/%Y")) + '/' + str(aux)
-            
-            orden.write({
-                "state": "progress",
-            })
-
-            nuevo_lote = http.request.env['stock.production.lot'].create({
-                "name": hoy,
-                "product_id": id_producto,
-            })
-
-            nuevo_producto_finalizado = http.request.env['stock.move.line'].create({
-                "move_id": id_linea,
-                "product_id": id_producto,
-                "product_uom_id": producto_uom,
-                "qty_done": cantidad,
-                "lot_id": nuevo_lote[0].id,
-                "location_id": location_id,
-                "location_dest_id": location_dest_id,
-            })
-
-            response = {
-                'successful': True, 
-                'message': 'Se ha producido la orden de producción correctamente', 
-                'error': ''
-            }
 
         except Exception as e: 
             response = {
@@ -990,7 +992,6 @@ class OdooController(http.Controller):
             linea_sm = http.request.env['stock.move'].search([('production_id', '=', order_id)])
             linea_sm_id = linea_sm[0].id
             buscar_linea_producto_final = http.request.env['stock.move.line'].search([('move_id', '=', linea_sm_id)])
-            _logger.info('********* ID recogida *********')
             linea_producto = http.request.env['stock.move.line'].search([('id', '=', buscar_linea_producto_final[0].id)])
             if mi_orden[0].state == 'progress':
                 mi_orden_actualizada = mi_orden.write({
@@ -1024,26 +1025,33 @@ class OdooController(http.Controller):
         order_id = int(post.get('order'))
 
         try:
-            # Para encontrar el producto finalizado(En stock move)
-            producto_finalizado_stock_move = http.request.env['stock.move'].search([('production_id', '=', order_id)])
-            sm_id_prodfinalizado = producto_finalizado_stock_move[0].id
-
-            # Ahora a encontrar la línea de lote (En stock move line) (pf = producto finalizado)
-            pf = http.request.env['stock.move.line'].search([('move_id', '=', sm_id_prodfinalizado)])
-            lote_pf = pf[0].lot_id.id
-
-            # Ahora a recorrer todas las lineas de lote de la orden
-            lineas_mp = http.request.env['stock.move.line'].search([('production_id', '=', order_id)])
-            for linea in lineas_mp:
-                linea.write({
-                    "lot_produced_id": lote_pf
-                })
-            _logger.info('********* Ya ha asignado los lotes a todas las lineas *********')
-
             mi_orden = http.request.env['mrp.production'].search([('id', '=', order_id)])
-            mi_orden.button_mark_done()
+            if mi_orden[0].state == 'progress':
+                # Para encontrar el producto finalizado(En stock move)
+                producto_finalizado_stock_move = http.request.env['stock.move'].search([('production_id', '=', order_id)])
+                sm_id_prodfinalizado = producto_finalizado_stock_move[0].id
+
+                # Ahora a encontrar la línea de lote (En stock move line) (pf = producto finalizado)
+                pf = http.request.env['stock.move.line'].search([('move_id', '=', sm_id_prodfinalizado)])
+                lote_pf = pf[0].lot_id.id
+
+                # Ahora a recorrer todas las lineas de lote de la orden
+                lineas_mp = http.request.env['stock.move.line'].search([('production_id', '=', order_id)])
+                for linea in lineas_mp:
+                    linea.write({
+                        "lot_produced_id": lote_pf
+                    })
+
+                mi_orden.button_mark_done()
             
-            response = {'successful': True, 'message': 'Orden de producción finalizada satisfactoriamente', 'error': ''}
+                response = {'successful': True, 'message': 'Orden de producción finalizada satisfactoriamente', 'error': ''}
+            
+            elif mi_orden[0].state == 'done':
+                response = {'successful': False, 'message': 'La orden de producción ya se encuentra en estado de finalizado', 'error': ''}
+            else:
+                response = {'successful': False, 'message': 'La orden de producción no se encuentra en estado de proceso', 'error': ''}
+
+            
             
         except Exception as e:
             response = {'successful': False, 'message': 'No se ha podido finalizar la orden de producción', 'error': str(e)}
