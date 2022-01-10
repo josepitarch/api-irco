@@ -707,7 +707,7 @@ class OdooController(http.Controller):
                 "product_uom_qty": cantidad,
                 "location_id": orden_completa[0].location_src_id.id,
                 "product_uom": producto_completo[0].uom_id.id,
-                "location_dest_id": orden_completa[0].location_dest_id.id,
+                "location_dest_id": 7,
                 "raw_material_production_id": orden_id, 
             })
             
