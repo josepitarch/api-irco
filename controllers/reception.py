@@ -14,9 +14,6 @@ _logger = logging.getLogger(__name__)
 CORS = "*"
 class GetControllerPedidosRecepciones(http.Controller):
     
-    # Controller para manejar todas las peticiones GET a la app, sobre "Pedidos y Recepciones"
-    # Controller creado por Jorge JM
-
     # Endpoint (Proporciona un listado de pedidos de compra que estén pendientes de recibir)(purchase.order)(stock.picking.type y stock.warehouse para el tema del almacen)
     @http.route('/api/purchase/orders/<int:almacen>', type='http', auth='user', methods=['GET'])
     def obtener_pedidos_compra(self, almacen, **kw):

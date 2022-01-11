@@ -23,7 +23,6 @@ class OdooController(http.Controller):
     def opbyselector(self, userid, selector, **kw):
         correct_call = True
     
-        
         today = date.today()
         name_day = calendar.day_name[today.weekday()]
         if selector == 0:
@@ -47,9 +46,7 @@ class OdooController(http.Controller):
             }]
             
         if correct_call:
-
             datosalmacenes = http.request.env['res.users'].search([('id', '=', userid)]).almacenes
-
             if(len(datosalmacenes) == 0):
                 response = [{
                     "successful": False,
@@ -510,7 +507,9 @@ class OdooController(http.Controller):
                         if lote['product_qty'] > 0:
                             objeto = {
                                 "id": lote['id'],
-                                "name": lote['name'] + " (" + str(lote['product_qty']) + " " +  str(lote['product_uom_id'].name) + ")",
+                                "name": lote['name'],
+                                "quantity": str(round(lote['product_qty'], 2)),
+                                "unity": str(lote['product_uom_id'].name)
                             }
 
                             response.append(objeto)
