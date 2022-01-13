@@ -306,8 +306,8 @@ class GetControllerPedidosRecepciones(http.Controller):
                             'id': producto['id'],
                             'product_id': producto['product_id'].id,
                             'product_name': producto['name'],
-                            'quantity': producto['product_uom_qty'],
-                            'quantity_done': producto['quantity_done'],
+                            'quantity': round(producto['product_uom_qty'], 2),
+                            'quantity_done': round(producto['quantity_done'], 2),
                             'unity': producto['product_uom'].name
                         }
 
@@ -374,8 +374,8 @@ class GetControllerPedidosRecepciones(http.Controller):
                         'id': product['id'],
                         'product_id': product['product_id'].id,
                         'product_name': product['name'],
-                        'quantity': product['product_uom_qty'],
-                        'quantity_done': product['quantity_done'],
+                        'quantity': round(product['product_uom_qty'], 2),
+                        'quantity_done': round(product['quantity_done'], 2),
                         'unity': product['product_uom'].name
                     }
                     lista_productos.append(current_product) 
