@@ -180,60 +180,6 @@ class GetControllerPedidosRecepciones(http.Controller):
 
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
 
-    # Endpoint (Obtener todas las solicitudes de compra creadas por el usuario)(Modelo: bom.purchase.request)(Modelo: bom.purchase.request.line)
-    @http.route('/api/all/purchase/requests/<int:userid>', type='http', auth='user', methods=['GET'])
-    def obtener_solicitudes_usuario(self, userid, **kw):
-        try: 
-            purchase_requests = http.request.env['bom.purchase.request'].search([('user_id', '=', userid)])
-            response = list()
-            transformStates = {'draft': 'Borrador', 'to_approve': 'Para aprobar', 'approved': 'Aprobada', 'rejected': 'Rechazada', 'done': 'Hecha'}
-            
-            for purchase_request in purchase_requests:
-                id_solicitud = purchase_request['id']
-                state = transformStates.get(purchase_request['state'], 'Sin estado')
-                if state == transformStates['draft']:
-                    lista_compra = []
-                    productos_solicitud = http.request.env['bom.purchase.request.line'].search([('request_id', '=', id_solicitud)])
-
-                    for product in productos_solicitud:
-                        current_product = {
-                            "id": product['id'],
-                            "product_id": product['product_id'].id,
-                            "product_name": product['name'],
-                            "quantity": product['product_qty'],
-                            "unity": product['product_id'].uom_id.name,
-                            "request_date": str(product['request_date'].strftime("%d/%m/%Y")),
-                        }
-                        lista_compra.append(current_product)
-                    
-                    current_purchase_order = {
-                        "id": id_solicitud,
-                        "name": purchase_request['name'],
-                        "name_apk": "Solicitud " + str(id_solicitud),
-                        "approver_id": purchase_request['approver_id'].id,
-                        "approver_name": purchase_request['approver_id'].name,
-                        "state": state,
-                        "products": lista_compra,
-                    }
-
-                    response.append(current_purchase_order)
-            
-        except Exception as e:
-            response = [{
-                'message': {
-                    'successful': False,
-                    'message': 'No se ha podido obtener las solicitudes de este usuario',
-                    'error': str(e)
-                }
-            }]
-
-            _logger.error(str(e))
-            
-        response = json.dumps(response)
-        
-        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
-
-    # Endpoint (Obtener datos de productos comprables)(Modelo: product.product)
     @http.route('/api/purchase/products/<int:deleg>/<int:service>', type='http', auth='user', methods=['GET'])
     def obtener_productos_comprables(self, deleg, service, **kw):
         try:
@@ -245,9 +191,8 @@ class GetControllerPedidosRecepciones(http.Controller):
                 name = product['name']
                 full_name = name + " ("+ str(reference) + ") "
                 current_product = {
-                    "id": product['id'],
-                    "name": product['name'],
-                    "full_name": full_name,
+                    "product_id": product['id'],
+                    "product_name": full_name,
                     "unity": product['uom_id'].name
                 }
 
@@ -711,81 +656,6 @@ class GetControllerPedidosRecepciones(http.Controller):
 
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
 
-    # SOLO EJECUTAR CUANDO LA CANTIDAD NORMAL Y LA CANTIDAD HECHA NO SEAN LA MISMA (Y LA OPCION EN LA APP SEA "REALIZAR ENTREGA")
-    # Endpoint (Actualizar el estado de una recepcion "Preparado" -> "Hecho") (Modelo: stock.picking) 
-    @http.route('/api/update/parcial/reception', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
-    def validar_parcial(self, **post):
-        id_recepcion = int(post.get('id'))
-       
-        try:
-            mi_recepcion = http.request.env['stock.picking'].search([('id', '=', id_recepcion)])
-            mis_productos = http.request.env['stock.move'].search([('picking_id', '=', id_recepcion)])
-
-            for producto in mis_productos:
-                cant_original = producto['product_uom_qty']
-                cant_hecha = producto['quantity_done']
-                resto = cant_original - cant_hecha
-
-                if resto > 0:
-                    # 1r paso, actualizar el registro con cantidad hecha
-                    actualiza_producto = http.request.env['stock.move'].search([('id', '=', producto['id'])]).write({
-                        "product_uom_qty": cant_hecha,
-                        "quantity_done": cant_hecha,
-                    })
-
-                    # 2n paso, crear nueva recepcion con datos de la anterior
-                    nueva_recepcion = http.request.env['stock.picking'].create({
-                        "location_dest_id": mi_recepcion[0].location_dest_id.id,
-                        "partner_id": mi_recepcion[0].partner_id.id,
-                        "group_id": mi_recepcion[0].group_id.id,
-                        "picking_type_id": mi_recepcion[0].picking_type_id.id,
-                        "scheduled_date": str(mi_recepcion[0].scheduled_date),
-                        # "origin": "Entrega parcial de " + str(mi_recepcion[0].name),
-                        "origin": mi_recepcion[0].origin,
-                        "location_id": mi_recepcion[0].location_id.id,
-                        "backorder_id": mi_recepcion[0].id,
-                    })
-                    # 3r paso, crear el producto de la nueva recepcion
-                    re_id = nueva_recepcion[0].id
-                    
-                    nuevo_producto = http.request.env['stock.move'].create({
-                        "picking_id": re_id,
-                        "product_id": producto['product_id'].id,
-                        "product_uom_qty": resto,
-                        "product_uom": producto['product_uom'].id,
-                        "name": producto['name'],
-                        "location_id": producto['location_id'].id,
-                        "location_dest_id": producto[0].location_dest_id.id,
-                    })
-                   
-                    nueva_recepcion.action_confirm()
-                
-                elif resto < 0:
-                    actualiza_producto_mayor = http.request.env['stock.move'].search([('id', '=', producto['id'])]).write({
-                        "product_uom_qty": cant_hecha,
-                        "quantity_done": cant_hecha,
-                    })
-                    _logger.info('Actualiza la cantidad correctamente')
-
-            response = {
-                'successful': True,
-                'message': 'Se ha validado la recepción parcial satisfactoriamente',
-                'error': ''
-            }
-        
-        except Exception as e:
-            response = {
-                'successful': False,
-                'message': 'No se ha podido validar la recepción parcial',
-                'error': str(e)
-            }
-
-            _logger.error(str(e))
-        
-        response = json.dumps(response)
-
-        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
-
     # Endpoint (Actualizar el estado de una recepcion "Borrador" -> "Cancelada") (Modelo: stock.picking)
     @http.route('/api/cancel/reception', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
     def cancelar_recepcion(self, **post):
@@ -1030,41 +900,6 @@ class GetControllerPedidosRecepciones(http.Controller):
         response = json.dumps(response)
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
     
-    # Endpoint (Actualizar datos del producto de la recepcion)
-    @http.route('/api/update/reception/product/data', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
-    def actualizar_datos_producto_recepcion(self, **post):
-        products_id = int(post.get('products')).split('-')
-        lots = str(post.get('lots')).split('-')
-        dates = str(post.get('dates')).split('-')
-
-        try:
-            for i in range(len(products_id)):
-                aux = dates[i].split('/')
-                fecha_formateada = aux[-1] + '-' + aux[1] + '-' + aux[0]
-           
-                linea_producto = http.request.env['stock.move'].search([('id', '=', products_id[i])]).write({
-                    "lote_prov": str(lots[i]),
-                    "fecha_caducidadd": str(fecha_formateada),
-                })
-                response = {
-                    'successful': True,
-                    'message': 'Se han actualizado los datos del producto satisfactoriamente',
-                    'error': ''
-                }
-
-        except Exception as e:
-            response = {
-                'successful': False,
-                'message': 'No se ha podido actualizar los datos del producto',
-                'error': str(e)
-            }
-        
-        response = json.dumps(response)
-
-        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
-
-    # EJECUTAR PARA ASIGNAR LOS LOTES EN LAS RECEPCIONES (TANTO ORIGINALES COMO PARCIALES) 
-    # ******Pendiente de pruebas******
     @http.route('/api/reception/lot/assign', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
     def asignar_lote_recepcion(self, **post):
         id_recepcion = int(post.get('reception'))

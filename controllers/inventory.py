@@ -133,50 +133,6 @@ class Inventory(http.Controller):
 
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
 
-    # Endpoint (Obtener listado de Mermas cuya ubicacion sea el almacen del usuario) (Modelo: stock.scrap)
-    @http.route('/api/all/scraps/<int:store>', type='http', auth='user', methods=['GET'])
-    def obtener_mermas(self, store, **kw):
-        try:
-            tipo_almacen = http.request.env['stock.warehouse'].search([('id', '=', store)])
-            al_stock = tipo_almacen[0].lot_stock_id.id
-        
-            listado_mermas = http.request.env['stock.scrap'].search([('location_id', '=', al_stock)])
-            response = list()
-            transformStates = {'draft': 'Borrador', 'done': 'Hecho'}
-
-            for merma in listado_mermas:
-                state = transformStates.get(merma['state'], 'Sin estado')
-                objeto = {
-                    "id": merma['id'],
-                    "name": merma['name'], 
-                    "product_id": merma['product_id'].id,
-                    "product_name": merma['product_id'].name,
-                    "lot": merma['lot_id'].name,
-                    "quantity": merma['scrap_qty'],
-                    "location_name": merma['location_id'].name,
-                    "location_scrap_name": merma['scrap_location_id'].name,
-                    "state": state,
-                }
-
-                response.append(objeto)
-     
-        except Exception as e:
-            response = [{
-                'message': {
-                    'successful': False,
-                    'message': 'No se han podido obtener las mermas para el almacen',
-                    'error': str(e)
-                }
-            }]
-
-            _logger.error(str(e))
-        
-        response = json.dumps(response)
-
-        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
-
-     # Endpoint (Crear un nuevo ajuste de inventario) (Modelo: stock.inventory)
-    
     @http.route('/api/create/adjustment/inventory', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
     def crear_ajuste_inventario(self, **post):
         nombre = post.get('name')

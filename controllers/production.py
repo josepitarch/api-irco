@@ -641,7 +641,7 @@ class OdooController(http.Controller):
             if order[0].state != 'draft':
                 response = { 
                     'successful': False, 
-                    'message': 'La orden no se encuentra en estado de borrador',
+                    'message': 'Esta orden de producción ya está confirmada',
                     'error': '' 
                 }
             else:
@@ -658,13 +658,10 @@ class OdooController(http.Controller):
                 })
 
                 if order_actualize:
-
-                    _logger.info('Se ha actualizado el registro correctamente')
-                    
                     order.action_confirm()
                     response = { 
                         'successful': True, 
-                        'message': 'El estado de la orden ha sido confirmado correctamente',
+                        'message': 'Se ha confirmado la orden de producción satisfactoriamente',
                         'error': '' 
                     }
                 
@@ -678,7 +675,7 @@ class OdooController(http.Controller):
         except Exception as e:
             response = { 
                 'successful': True, 
-                'message': 'El estado de la orden ha sido confirmado correctamente',
+                'message': 'Se ha confirmado la orden de producción satisfactoriamente',
                 'error': '' 
             }
 
