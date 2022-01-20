@@ -213,6 +213,59 @@ class GetControllerPedidosRecepciones(http.Controller):
 
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
 
+    # Endpoint (Obtener todas las solicitudes de compra creadas por el usuario)(Modelo: bom.purchase.request)(Modelo: bom.purchase.request.line)
+    @http.route('/api/all/purchase/requests/<int:userid>', type='http', auth='user', methods=['GET'])
+    def obtener_solicitudes_usuario(self, userid, **kw):
+        try: 
+            purchase_requests = http.request.env['bom.purchase.request'].search([('user_id', '=', userid)])
+            response = list()
+            transformStates = {'draft': 'Borrador', 'to_approve': 'Para aprobar', 'approved': 'Aprobada', 'rejected': 'Rechazada', 'done': 'Hecha'}
+            
+            for purchase_request in purchase_requests:
+                id_solicitud = purchase_request['id']
+                state = transformStates.get(purchase_request['state'], 'Sin estado')
+                if state == transformStates['draft']:
+                    lista_compra = []
+                    productos_solicitud = http.request.env['bom.purchase.request.line'].search([('request_id', '=', id_solicitud)])
+
+                    for product in productos_solicitud:
+                        current_product = {
+                            "id": product['id'],
+                            "product_id": product['product_id'].id,
+                            "product_name": product['name'],
+                            "quantity": product['product_qty'],
+                            "unity": product['product_id'].uom_id.name,
+                            "request_date": str(product['request_date'].strftime("%d/%m/%Y")),
+                        }
+                        lista_compra.append(current_product)
+                    
+                    current_purchase_order = {
+                        "id": id_solicitud,
+                        "name": purchase_request['name'],
+                        "name_apk": "Solicitud " + str(id_solicitud),
+                        "approver_id": purchase_request['approver_id'].id,
+                        "approver_name": purchase_request['approver_id'].name,
+                        "state": state,
+                        "products": lista_compra,
+                    }
+
+                    response.append(current_purchase_order)
+            
+        except Exception as e:
+            response = [{
+                'message': {
+                    'successful': False,
+                    'message': 'No se ha podido obtener las solicitudes de este usuario',
+                    'error': str(e)
+                }
+            }]
+
+            _logger.error(str(e))
+            
+        response = json.dumps(response)
+        
+        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
+    
     @http.route('/api/ware/return/<int:almacen>', type='http', auth='user', methods=['GET'])
     def obtener_recepciones(self, almacen, **kw):
         try:
@@ -754,152 +807,6 @@ class GetControllerPedidosRecepciones(http.Controller):
         response = json.dumps(response)
         return Response(response, content_type='application/json;charset=utf-8', status = 200)
 
-    # SOLO EJECUTAR CUANDO LA RECEPCION NO SEA ORIGINAL (ORIGINAL = FALSE). ESTE METODO SECRETAMENTE ASIGNARA EL LOTE NUEVO
-    # Endpoint (Asignar nuevo lote a recepcion parcial (No original) y tenerlo creado en la base de datos)
-    @http.route('/api/parcial/reception/lot/assign', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
-    def asignar_lote_recepcion_parcial(self, **post):
-        id_recepcion = int(post.get('reception'))
-        
-        # Aqui va la logica de sacar el nuevo lote
-        try:
-            mi_recepcion = http.request.env['stock.picking'].search([('id', '=', id_recepcion)])
-
-            id_original = mi_recepcion[0].backorder_id.id
-            
-
-            productos_original = http.request.env['stock.move'].search([('picking_id', '=', id_original)])
-            _logger.info('*************** Id primer producto ************** %s'%productos_original[0].id)
-
-            linea_producto = http.request.env['stock.move.line'].search([('move_id', '=', productos_original[0].id)])
-            lote_name = linea_producto[0].lot_id.name
-            _logger.info('*************** Nombre lote ************** %s'%lote_name)
-
-            if lote_name != False:
-                lote_aux = lote_name.split('/')
-                numero_lote = int(lote_aux[4]) + 1
-                parte_aux = ""
-                nombre_lote = ""
-                if numero_lote < 10:
-                    parte_aux = "0" + str(numero_lote)
-                    nombre_lote = str(lote_aux[0]) + "/" + str(lote_aux[1]) + "/" + str(lote_aux[2]) + "/" + str(lote_aux[3]) + "/" + parte_aux
-                else: 
-                    nombre_lote = str(lote_aux[0]) + "/" + str(lote_aux[1]) + "/" + str(lote_aux[2]) + "/" + str(lote_aux[3]) + "/" + str(numero_lote)
-
-                _logger.info('************ Nombre del nuevo lote ************ %s'%nombre_lote)
-
-                mis_productos = http.request.env['stock.move'].search([('picking_id', '=', id_recepcion)])
-
-                for producto in mis_productos:
-                    line_id = producto['id']
-                    product_id = producto['product_id'].id
-                    mi_linea_de_lote = http.request.env['stock.move.line'].search([('move_id', '=', line_id)])
-                    for linea in mi_linea_de_lote:
-                        nuevo_lote = http.request.env['stock.production.lot'].create({
-                            "name": nombre_lote,
-                            "product_id": product_id,
-                        })
-                    
-                        linea.write({
-                            "lot_id": nuevo_lote[0].id,
-                        })
-
-                response = {
-                    'successful': True,
-                    'message': 'Se ha asignado el lote a los productos satisfactoriamente',
-                    'error': ''
-                }
-            else:
-                response = {
-                    'successful': False,
-                    'message': 'Ha ocurrido un problema con el lote de esta recepción',
-                    'error': ''
-                }
-            
-        except Exception as e:
-            response = {
-                'successful': False,
-                'message': 'No se ha podido asignar el lote a los productos de la recepcion',
-                'error': str(e)
-            }
-
-            _logger.error(str(e))
-        
-        response = json.dumps(response)
-
-        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
-    
-    # SOLO EJECUTAR CUANDO LA RECEPCION SEA ORIGINAL (ORIGINAL = TRUE) Y EJECUTAR SIEMPRE DESPUES DE RECEPCION PARCIAL. ESTE METODO SECRETAMENTE ASIGNARA EL LOTE NUEVO A LA ORDEN ORIGINAL
-    # Endpoint (Añadir lote a la recepcion ORIGINAL)
-    @http.route('/api/original/reception/lot/assign', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
-    def asignar_lote_recepcion_original(self, **post):
-        id_recepcion = int(post.get('reception'))
-        almacen = int(post.get('almacen'))
-        
-        # Aqui va la logica de sacar el nuevo lote para la original
-        try:
-            productos = http.request.env['stock.move'].search([('picking_id', '=', id_recepcion)])
-            
-            tipo_almacen = http.request.env['stock.warehouse'].search([('id', '=', almacen)])
-            al_stock = tipo_almacen[0].lot_stock_id.id
-            ubicacion_padre = http.request.env['stock.location'].search([('id', '=', al_stock)])
-            # Nombre del padre
-            parent_name = ubicacion_padre[0].location_id.name
-
-            productos = http.request.env['stock.move'].search([('picking_id', '=', id_recepcion)])
-            # Parte de la fecha de hoy
-            hoy = str(date.today().strftime("%d/%m/%Y"))
-
-            listado_lotes = http.request.env['stock.production.lot'].search([], order="id desc")
-            
-            encontrado = False
-            numero_lote = ""
-            fecha_lote = ""
-            for lote in listado_lotes:
-                array_nombre = lote['name'].split('/')
-                if len(array_nombre)== 5:
-                    if array_nombre[3] == parent_name:
-                        encontrado = True
-                        numero_lote = array_nombre[4]
-                        fecha_lote = array_nombre[0] + '/' + array_nombre[1] + '/' + array_nombre[2]
-                        break
-
-            nombre_lote = ""
-
-            if encontrado == True:
-                if fecha_lote == hoy: 
-                    numero_real = int(numero_lote)
-                    numero_real += 1
-                    nombre_lote = fecha_lote + '/' + parent_name + '/' + str(numero_real)
-                else: 
-                    numero_real = "01"
-                    nombre_lote = hoy + '/' + parent_name + '/' + numero_real
-            else:
-                numero_real = "01"
-                nombre_lote = hoy + '/' + parent_name + '/' + numero_real
-            
-            for producto in productos:
-                line_id = producto['id']
-                product_id = producto['product_id'].id
-                mi_linea_de_lote = http.request.env['stock.move.line'].search([('move_id', '=', line_id)])
-                for linea in mi_linea_de_lote:
-                    nuevo_lote = http.request.env['stock.production.lot'].create({
-                        "name": nombre_lote,
-                        "product_id": product_id,
-                    })
-                    _logger.info('Lote creado')
-                    linea.write({
-                        "lot_id": nuevo_lote[0].id,
-                    })
-                    _logger.info('Linea actualizada')
-
-            response = {'successful': True, 'message': 'Se ha asignado el lote a los productos de la recepción satisfactoriamente', 'error': ''}
-           
-        except Exception as e:
-            response = {'successful': False, 'message': 'No se ha podido asignar el lote a los productos de la recepcion', 'error': str(e)}
-        
-        response = json.dumps(response)
-        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
-    
     @http.route('/api/reception/lot/assign', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
     def asignar_lote_recepcion(self, **post):
         id_recepcion = int(post.get('reception'))

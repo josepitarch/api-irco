@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from odoo import http
 from odoo.http import Response, request
+import datetime
+from datetime import date
+import calendar
 import json
 import logging
 
@@ -122,4 +125,96 @@ class Commensals(http.Controller):
         
         response = json.dumps(response)
 
+        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
+
+    # Endpoint (Obtener pedidos de venta de comensales) (TODOS LOS DEL USUARIO) (Modelo: sale.order / sale.order.line)
+    @http.route('/api/catering/sale/orders/<int:partnerid>', type='http', auth='user', methods=['GET'])
+    def obtener_todos_pedidos_venta_catering(self, partnerid, **kw):
+        try:
+            listado_pedidos = http.request.env['sale.order'].search([('partner_id', '=', partnerid), ('state', '!=', 'cancel')], order="fecha_pedido desc")
+            
+            response=[]
+            for pedido in listado_pedidos:
+                id_pedido = pedido['id']
+
+                lineas_pedido = http.request.env['sale.order.line'].search([('order_id', '=', id_pedido), ('display_type', '=', 'line_section')])
+                array_lineas = []
+                for linea in lineas_pedido:
+                    datos_linea = {
+                        'name': linea['name'],
+                        'quantity': linea['quantity'],
+                        'uom': linea['uom'],
+                        'menu_price': linea['menu_price'],
+                        'tax': linea['tax'],
+                        'total': linea['section_total']
+                    }
+                    array_lineas.append(datos_linea)
+
+                datos_pedido = {
+                    'name': pedido['name'],
+                    'client_name': pedido['partner_id'].name,
+                    'date': str(pedido['fecha_pedido'].strftime("%d/%m/%Y")),
+                    'order_lines': array_lineas,
+                }
+                response.append(datos_pedido)
+
+        except Exception as e:
+            response = [{
+                'message': {
+                    'successful': False,
+                    'message': 'No se han podido obtener los pedidos de venta para este cliente',
+                    'error': str(e)
+                }
+            }]
+        
+        response = json.dumps(response)
+        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
+
+    # Endpoint (Obtener pedidos de venta de comensales) (DE UN MES ESPECÍFICO) (Modelo: sale.order / sale.order.line)
+    @http.route('/api/catering/sale/orders/<int:year>/<int:month>/<int:partnerid>', type='http', auth='user', methods=['GET'])
+    def obtener_pedidos_venta_catering_mes_actual(self, year, month, partnerid, **kw):
+        try:
+
+            tupla_dias_mes = calendar.monthrange(year, month)
+            dias_mes = tupla_dias_mes[1]
+            primer_dia_mes = str(year) + '-' + str(month) + '-01'
+            ultimo_dia_mes = str(year) + '-' + str(month) + '-' + str(dias_mes)
+            
+            listado_pedidos = http.request.env['sale.order'].search([('partner_id', '=', partnerid), ('state', '!=', 'cancel'), ('fecha_pedido', '>=', primer_dia_mes), ('fecha_pedido', '<=', ultimo_dia_mes)], order="fecha_pedido desc")
+            
+            response=[]
+            for pedido in listado_pedidos:
+                id_pedido = pedido['id']
+
+                lineas_pedido = http.request.env['sale.order.line'].search([('order_id', '=', id_pedido), ('display_type', '=', 'line_section')])
+                array_lineas = []
+                for linea in lineas_pedido:
+                    datos_linea = {
+                        'name': linea['name'],
+                        'quantity': linea['quantity'],
+                        'uom': linea['uom'],
+                        'menu_price': linea['menu_price'],
+                        'tax': linea['tax'],
+                        'total': linea['section_total']
+                    }
+                    array_lineas.append(datos_linea)
+
+                datos_pedido = {
+                    'name': pedido['name'],
+                    'client_name': pedido['partner_id'].name,
+                    'date': str(pedido['fecha_pedido'].strftime("%d/%m/%Y")),
+                    'order_lines': array_lineas,
+                }
+                response.append(datos_pedido)
+
+        except Exception as e:
+            response = [{
+                'message': {
+                    'successful': False,
+                    'message': 'No se han podido obtener los pedidos de venta para este cliente',
+                    'error': str(e)
+                }
+            }]
+        
+        response = json.dumps(response)
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
