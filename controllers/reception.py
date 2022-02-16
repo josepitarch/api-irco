@@ -412,12 +412,12 @@ class GetControllerPedidosRecepciones(http.Controller):
     def obtener_movimientos(self, store, **kw):
         try:
             hoy = date.today()
-            mes_pasado = hoy + timedelta(days=-30)
+            mes_pasado = hoy + timedelta(days = -30)
             mes_formateado = str(mes_pasado) + ' 00:00:00'
             tipo_almacen = http.request.env['stock.warehouse'].search([('id', '=', store)])
        
-            movements = http.request.env['stock.move.line'].search(['|', ('location_id', '=', tipo_almacen[0].lot_stock_id.id), ('location_dest_id', '=', tipo_almacen[0].lot_stock_id.id), '&', ('state', '=', 'done'), ('date', '>=', mes_formateado)], order='date desc')
-            response = list()
+            movements = http.request.env['stock.move.line'].search(['|', ('location_id', '=', tipo_almacen[0].lot_stock_id.id), ('location_dest_id', '=', tipo_almacen[0].lot_stock_id.id), '&', ('state', '=', 'done'), ('date', '>=', mes_formateado), ('picking_id', '!=', False)], order='date desc')
+            response = []
 
             for movement in movements:
                 
@@ -428,6 +428,8 @@ class GetControllerPedidosRecepciones(http.Controller):
                         "product": movement['product_id'].name,
                         "done": movement['qty_done'],
                         "unity": movement['product_uom_id'].name,
+                        "origin": movement['location_id'].location_id.name + '/' + movement['location_id'].name,
+                        "destination": movement['location_dest_id'].location_id.name + '/' + movement['location_dest_id'].name,
                     }
 
                     response.append(current_movement)

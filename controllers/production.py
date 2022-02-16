@@ -125,6 +125,7 @@ class OdooController(http.Controller):
                                     "id": cliente['partner_id'].id,
                                     "name": cliente['partner_id'].name,
                                     "diet_name": dieta,
+                                    "quantity": cliente["cant_prod"]
                                 }
                                 clients.append(obj)
                             
@@ -227,6 +228,7 @@ class OdooController(http.Controller):
                         "id": cliente['partner_id'].id,
                         "name": cliente['partner_id'].name,
                         "diet_name": dieta,
+                        "quantity": cliente["cant_prod"]
                     }
                     clients.append(obj)
 
@@ -552,7 +554,7 @@ class OdooController(http.Controller):
             material = materiales[0].id
             
             _logger.info('******* Material ******** %s' %material)
-            almacenes = http.request.env['stock.picking.type'].search([('code', '=', 'mrp_operation'), ('name', '=', 'Consumos de producción'), ('warehouse_id', '=', store)])
+            almacenes = http.request.env['stock.picking.type'].search([('code', '=', 'mrp_operation'), ('warehouse_id', '=', store)])
             _logger.info('************* Location Dest ID ************ %s' %almacenes[0].default_location_dest_id.id)
            
             new_order = http.request.env['mrp.production'].create({
@@ -861,7 +863,6 @@ class OdooController(http.Controller):
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
 
      # Endpoint (Actualizar lote de la materia prima) (Modelo: stock.move.line)
-    
     @http.route('/api/re/assign/lot', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
     def actualizar_lote_materiaprima(self, **post):
         id_lineas = str(post.get('lotline')).split('-')

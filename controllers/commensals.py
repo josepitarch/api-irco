@@ -128,7 +128,7 @@ class Commensals(http.Controller):
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
 
     # Endpoint (Obtener pedidos de venta de comensales) (TODOS LOS DEL USUARIO) (Modelo: sale.order / sale.order.line)
-    @http.route('/api/catering/sale/orders/<int:partnerid>', type='http', auth='user', methods=['GET'])
+    @http.route('/api/catering/all/sale/orders/<int:partnerid>', type='http', auth='user', methods=['GET'])
     def obtener_todos_pedidos_venta_catering(self, partnerid, **kw):
         try:
             listado_pedidos = http.request.env['sale.order'].search([('partner_id', '=', partnerid), ('state', '!=', 'cancel')], order="fecha_pedido desc")
@@ -174,20 +174,32 @@ class Commensals(http.Controller):
     @http.route('/api/catering/sale/orders/<int:year>/<int:month>/<int:partnerid>', type='http', auth='user', methods=['GET'])
     def obtener_pedidos_venta_catering_mes_actual(self, year, month, partnerid, **kw):
         try:
+            
+            response=[]
 
             tupla_dias_mes = calendar.monthrange(year, month)
             dias_mes = tupla_dias_mes[1]
             primer_dia_mes = str(year) + '-' + str(month) + '-01'
             ultimo_dia_mes = str(year) + '-' + str(month) + '-' + str(dias_mes)
             
-            listado_pedidos = http.request.env['sale.order'].search([('partner_id', '=', partnerid), ('state', '!=', 'cancel'), ('fecha_pedido', '>=', primer_dia_mes), ('fecha_pedido', '<=', ultimo_dia_mes)], order="fecha_pedido desc")
+            listado_pedidos = http.request.env['sale.order'].search([('partner_id', '=', partnerid), ('state', '!=', 'cancel'), ('fecha_pedido', '>=', primer_dia_mes), ('fecha_pedido', '<=', ultimo_dia_mes), ('pedido_catering_manual_id', '!=', False)], order="fecha_pedido desc")
             
-            response=[]
+            once_pedidos = dict()
             for pedido in listado_pedidos:
-                id_pedido = pedido['id']
+                date = str(pedido['fecha_pedido'].strftime("%d/%m/%Y"))
+                client_name = pedido['partner_id'].name
+                value = once_pedidos.get(date, None)
 
-                lineas_pedido = http.request.env['sale.order.line'].search([('order_id', '=', id_pedido), ('display_type', '=', 'line_section')])
-                array_lineas = []
+                if value is None:
+                    once_pedidos[date] = (pedido['id'], pedido['name'], client_name)
+                else:
+                    if pedido['name'][2:] > value[1][2:]:
+                        once_pedidos[date] = (pedido['id'], pedido['name'], client_name)
+
+            for key in once_pedidos:
+                lineas_pedido = http.request.env['sale.order.line'].search([('order_id', '=', once_pedidos[key][0]), ('display_type', '=', 'line_section')])
+                
+                array_lineas = list()
                 for linea in lineas_pedido:
                     datos_linea = {
                         'name': linea['name'],
@@ -200,11 +212,12 @@ class Commensals(http.Controller):
                     array_lineas.append(datos_linea)
 
                 datos_pedido = {
-                    'name': pedido['name'],
-                    'client_name': pedido['partner_id'].name,
-                    'date': str(pedido['fecha_pedido'].strftime("%d/%m/%Y")),
+                    'name': once_pedidos[key][1],
+                    'client_name': once_pedidos[key][2],
+                    'date': key,
                     'order_lines': array_lineas,
                 }
+
                 response.append(datos_pedido)
 
         except Exception as e:
