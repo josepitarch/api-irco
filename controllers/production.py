@@ -19,8 +19,8 @@ CORS = "*"
 class OdooController(http.Controller):
 
     # ENDPOINT 1 (Filtra por usuario)(Ordenes de producción de hoy)(Modelo: irco.clientes.production)(Modelo: mrp.production)
-    @http.route(route='/api/op/<int:userid>/<int:selector>', auth='user', methods=['GET'], type='http')
-    def opbyselector(self, userid, selector, **kw):
+    @http.route(route='/api/op/new/<int:userid>/<int:selector>', auth='user', methods=['GET'], type='http')
+    def opbyselectornew(self, userid, selector, **kw):
         correct_call = True
     
         today = date.today()
@@ -82,23 +82,36 @@ class OdooController(http.Controller):
                                 lista_materiales = list()
 
                             for raw_material in lista_materiales:
+                                lots = list()
                                 lot = http.request.env['stock.move.line'].search([('move_id', '=', raw_material['id'])])
+
+                                for lotline in lot:
+                                    idlote = -1
+                                    nombrelote = ''
+
+                                    if lotline['lot_id'].id:
+                                        idlote = lotline['lot_id'].id
+                                        nombrelote = lotline['lot_id'].name
+
+                                    current_lot = {
+                                        'lot_line': lotline['id'],
+                                        'id': idlote,
+                                        'name': nombrelote,
+                                        'reserved': round(lotline['product_qty'], 2),
+                                        'quantity': round(lotline['qty_done'], 2),
+                                        'unity': lotline['product_uom_id'].name
+                                    }
+
+                                    lots.append(current_lot)
             
                                 if len(lot) > 0:
                                     done = raw_material['quantity_done'] if state is not 'Borrador' else 0.0
                                     reserved = raw_material['reserved_availability'] if state is not 'Borrador' else 0.0
-                                    lot_line = lot[0].id if state is not 'Borrador' else -1
-                                    lot_id = lot[0].lot_id.id if state is not 'Borrador' else -1
-                                    lot_name = lot[0].lot_id.name if state is not 'Borrador' else ""
                                 else:
-                                    reserved = 0; done = 0; lot_line = -1; lot_id = -1; lot_name = ""
+                                    reserved = 0; done = 0
                                 
                                 quantity = raw_material['product_uom_qty'] if state is not 'Borrador' else raw_material['product_qty']
-                                
-                                if lot_id == False or lot_name == False:
-                                    lot_id = -1
-                                    lot_name = ""
-                                    
+                     
                                 current_rm = {
                                     "id": raw_material['id'],
                                     "product_id": raw_material['product_id'].id,
@@ -107,9 +120,7 @@ class OdooController(http.Controller):
                                     "unity": raw_material['product_uom'].name,
                                     "reserved": reserved,
                                     "done": done,
-                                    "lot_line": lot_line,
-                                    "lot_id": lot_id,
-                                    "lot_name": lot_name
+                                    "lots": lots
                                 }
 
                                 raw_materials.append(current_rm)
@@ -160,8 +171,8 @@ class OdooController(http.Controller):
 
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
  
-    @http.route(route='/api/op/id/<int:user_id>/<int:op_id>', auth='user', methods=['GET'], type='http')
-    def opbyid(self, user_id, op_id, **kw):
+    @http.route(route='/api/op/id/new/<int:user_id>/<int:op_id>', auth='user', methods=['GET'], type='http')
+    def opbyidnew(self, user_id, op_id, **kw):
         try:
 
             datosalmacenes = http.request.env['res.users'].search([('id', '=', user_id)]).almacenes
@@ -186,23 +197,36 @@ class OdooController(http.Controller):
                     lista_materiales = http.request.env['mrp.bom.line'].search([('bom_id', '=', production_order['bom_id'].id)])
 
                 for raw_material in lista_materiales:
+                    lots = list()
                     lot = http.request.env['stock.move.line'].search([('move_id', '=', raw_material['id'])])
+
+                    for lotline in lot:
+                        idlote = -1
+                        nombrelote = ''
+                        if lotline['lot_id'].id:
+                            idlote = lotline['lot_id'].id
+                            nombrelote = lotline['lot_id'].name
+                        
+                        current_lot = {
+                            'lot_line': lotline['id'],
+                            'id': idlote,
+                            'name': nombrelote,
+                            'reserved': round(lotline['product_qty'], 2),
+                            'quantity': round(lotline['qty_done'], 2),
+                            'unity': lotline['product_uom_id'].name
+                        }
+
+                        lots.append(current_lot)
 
                     if len(lot) > 0:
                         done = raw_material['quantity_done'] if state is not 'Borrador' else 0.0
                         reserved = raw_material['reserved_availability'] if state is not 'Borrador' else 0.0
-                        lot_line = lot[0].id if state is not 'Borrador' else -1
-                        lot_id = lot[0].lot_id.id if state is not 'Borrador' else -1
-                        lot_name = lot[0].lot_id.name if state is not 'Borrador' else ""
+                      
                     else:
-                        reserved = 0.0; done = 0.0; lot_line = -1; lot_id = -1; lot_name = ""
+                        reserved = 0.0; done = 0.0
                     
                     quantity = raw_material['product_uom_qty'] if state is not 'Borrador' else raw_material['product_qty']
-                    
-                    if lot_id == False or lot_name == False:
-                        lot_id = -1
-                        lot_name = ""
-                    
+  
                     current_rm = {
                         "id": raw_material['id'],
                         "product_id": raw_material['product_id'].id,
@@ -211,9 +235,7 @@ class OdooController(http.Controller):
                         "unity": raw_material['product_uom'].name,
                         "reserved": reserved,
                         "done": done,
-                        "lot_line": lot_line,
-                        "lot_id": lot_id,
-                        "lot_name": lot_name
+                        "lots": lots   
                     }
 
                     raw_materials.append(current_rm)
@@ -510,7 +532,7 @@ class OdooController(http.Controller):
                             objeto = {
                                 "id": lote['id'],
                                 "name": lote['name'],
-                                "quantity": str(round(lote['product_qty'], 2)),
+                                "quantity": round(lote['product_qty'], 2),
                                 "unity": str(lote['product_uom_id'].name)
                             }
 
@@ -545,17 +567,13 @@ class OdooController(http.Controller):
         fecha_formateada = aux[-1] + '-' + aux[1] + '-' + aux[0] + ' 06:00:00'
 
         try:
-            _logger.info('******* Plato Template ******** %s' %dish)
             producto = http.request.env['product.product'].search([('product_tmpl_id', '=', dish)])
             producto_id = producto[0].id
-            _logger.info('******* Producto ******** %s' %producto_id)
             
             materiales =  http.request.env['mrp.bom'].search([('product_tmpl_id', '=', dish)])
             material = materiales[0].id
             
-            _logger.info('******* Material ******** %s' %material)
             almacenes = http.request.env['stock.picking.type'].search([('code', '=', 'mrp_operation'), ('warehouse_id', '=', store)])
-            _logger.info('************* Location Dest ID ************ %s' %almacenes[0].default_location_dest_id.id)
            
             new_order = http.request.env['mrp.production'].create({
                 'delegacion': deleg,
@@ -1123,4 +1141,287 @@ class OdooController(http.Controller):
             _logger.error(str(e))
         
         response = json.dumps(response)
+        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
+
+        # Endpoint (Modificar lineas de lote) (stock.move.line)
+    @http.route('/api/modify/lot/line', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
+    def modificar_lotes_tabla(self, **post):
+        lotline = int(post.get('lotline'))
+        lotid = int(post.get('lotid'))
+        quantity = float(post.get('quantity'))
+
+        try:
+            linea_lote = http.request.env['stock.move.line'].search([('id', '=', lotline)]).write({
+                'lot_id': lotid,
+                'qty_done': quantity,
+            })
+            
+            response = {'successful': True, 'message': 'Se ha modificado la linea de lote satisfactoriamente', 'error': ''}
+        except Exception as e:
+            response = {'successful': False, 'message': 'No se ha podido modificar la linea de lote', 'error': str(e)}
+            _logger.error(str(e))
+        
+        response = json.dumps(response)
+        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
+
+    # Endpoint (Eliminar lineas de lote) (stock.move.line)
+    @http.route('/api/delete/lot/line', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
+    def eliminar_lotes_tabla(self, **post):
+        lotline = int(post.get('lotline'))
+        try:
+            lotes_afectados = http.request.env['stock.move.line'].search([('id', '=', lotline)])
+            for lote in lotes_afectados:
+                lote.unlink()
+            
+            response = {'successful': True, 'message': 'Se ha eliminado la linea de lote satisfactoriamente', 'error': ''}
+        except Exception as e:
+            response = {'successful': False, 'message': 'No se ha podido eliminar la linea del lote', 'error': str(e)}
+            _logger.error(str(e))
+        
+        response = json.dumps(response)
+        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
+
+    
+    
+    @http.route(route='/api/op/<int:userid>/<int:selector>', auth='user', methods=['GET'], type='http')
+    def opbyselector(self, userid, selector, **kw):
+        correct_call = True
+    
+        today = date.today()
+        name_day = calendar.day_name[today.weekday()]
+        if selector == 0:
+            date_ini, date_end = str(today) + ' 00:00:00', str(today) + ' 23:59:59'
+        elif selector == 1:
+            date_ini, date_end = utils.interval_of_dates(name_day, today)
+        elif selector == 2:
+            hoy = today + timedelta(days = 7)
+            date_ini, date_end = utils.interval_of_dates(name_day, hoy)
+        elif selector == 3:
+            hoy = today + timedelta(days=14)
+            date_ini, date_end = utils.interval_op_future(name_day, hoy)
+        elif selector == 4:
+            date_end = str(today) + ' 00:00:00'
+        else:
+            correct_call = False
+            response = [{
+                "successful": False,
+                "message": "Campo selector no válido",
+                "error": "Fallo en la llamada al endpoint /api/op/<int:userid>/<int:selector>"
+            }]
+            
+        if correct_call:
+            datosalmacenes = http.request.env['res.users'].search([('id', '=', userid)]).almacenes
+            if(len(datosalmacenes) == 0):
+                response = [{
+                    "successful": False,
+                    "message": "Este usuario no tiene un almacén asignado",
+                    "error": "Este usuario no tiene un almacén asignado"
+                }]
+
+            for almacen in datosalmacenes:
+                stock = http.request.env['stock.warehouse'].search([('id', '=', almacen.id)])
+            
+                response = list()
+                transformStates = {'draft': 'Borrador', 'confirmed': 'Confirmado', 'planned': 'Planificado', 'progress': 'En proceso', 'done': 'Hecho', 'cancel': 'Cancelado'}
+
+                if selector != 4:
+                    production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '>=', date_ini), ('date_planned_start', '<=', date_end)], order = "state desc, date_planned_start desc")
+                else:
+                    production_orders = http.request.env['mrp.production'].search([('location_src_id', '=', stock[0].lot_stock_id.id), ('date_planned_start', '<=', date_end), ('state', '!=', 'done'), ('state', '!=', 'cancel')], order="state desc, date_planned_start desc")
+                
+                for production_order in production_orders:
+                    try:
+                        date_op = str(production_order['date_planned_start'].strftime("%d/%m/%Y"))
+                        past = datetime.strptime(date_op, "%d/%m/%Y")
+                        present = datetime.now()
+                        
+                        if past.date() >= present.date() or selector == 4:
+                            state = transformStates.get(production_order['state'], 'No State')
+                            raw_materials = list()
+
+                            if state is not "Borrador":
+                                lista_materiales = http.request.env['stock.move'].search([('raw_material_production_id', '=', production_order['id'])])
+                                
+                            else:
+                                lista_materiales = list()
+
+                            for raw_material in lista_materiales:
+                                lot = http.request.env['stock.move.line'].search([('move_id', '=', raw_material['id'])])
+            
+                                if len(lot) > 0:
+                                    done = raw_material['quantity_done'] if state is not 'Borrador' else 0.0
+                                    reserved = raw_material['reserved_availability'] if state is not 'Borrador' else 0.0
+                                    lot_line = lot[0].id if state is not 'Borrador' else -1
+                                    lot_id = lot[0].lot_id.id if state is not 'Borrador' else -1
+                                    lot_name = lot[0].lot_id.name if state is not 'Borrador' else ""
+                                else:
+                                    reserved = 0; done = 0; lot_line = -1; lot_id = -1; lot_name = ""
+                                
+                                quantity = raw_material['product_uom_qty'] if state is not 'Borrador' else raw_material['product_qty']
+                                
+                                if lot_id == False or lot_name == False:
+                                    lot_id = -1
+                                    lot_name = ""
+                                    
+                                current_rm = {
+                                    "id": raw_material['id'],
+                                    "product_id": raw_material['product_id'].id,
+                                    "name": raw_material['product_id'].name,
+                                    "quantity": quantity,
+                                    "unity": raw_material['product_uom'].name,
+                                    "reserved": reserved,
+                                    "done": done,
+                                    "lot_line": lot_line,
+                                    "lot_id": lot_id,
+                                    "lot_name": lot_name
+                                }
+
+                                raw_materials.append(current_rm)
+
+                            
+                            clients = []
+                            clientes = http.request.env['irco.clientes.production'].search([('mrp_production_id', '=', production_order['id'])])
+                            for cliente in clientes:
+                                dieta = ""
+                                if cliente['dieta_id'].id:
+                                    dieta = cliente['dieta_id'].name
+                                obj = {
+                                    "id": cliente['partner_id'].id,
+                                    "name": cliente['partner_id'].name,
+                                    "diet_name": dieta,
+                                    "quantity": cliente["cant_prod"]
+                                }
+                                clients.append(obj)
+                            
+                            dish = {
+                                "id": production_order['id'],
+                                "name": production_order['name'],
+                                "quantity": int(production_order['product_qty']),
+                                "quantity_produced": production_order['cant_producida'],
+                                "product_id": production_order['product_id'].product_tmpl_id.id,
+                                "product_name": production_order['product_id'].name,
+                                "state": state,
+                                "clients": clients,
+                                "raw_materials": raw_materials,
+                                "date": str(production_order['date_planned_start'].strftime("%d/%m/%Y")),
+                                "date_US": str(production_order['date_planned_start'].strftime("%Y/%m/%d")),
+                            }
+
+                            response.append(dish)
+
+                    except Exception as e:
+                        # response = [{
+                        #     "message": {
+                        #         "successful": False,
+                        #         "message": "No se ha podido obtener las órdenes de producción",
+                        #         "error": str(e) + " ID Order Production Failed = " + str(production_order['id'])
+                        #     }    
+                        # }]
+
+                        _logger.error(str(e))
+        
+            response = json.dumps(response)
+
+        return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
+ 
+    @http.route(route='/api/op/id/<int:user_id>/<int:op_id>', auth='user', methods=['GET'], type='http')
+    def opbyid(self, user_id, op_id, **kw):
+        try:
+
+            datosalmacenes = http.request.env['res.users'].search([('id', '=', user_id)]).almacenes
+
+            for almacen in datosalmacenes:
+                _logger.info('*************** Almacen ************ %s' %almacen.id)
+
+                stock = http.request.env['stock.warehouse'].search([('id', '=', almacen.id)])
+
+                response = dict()
+                transformStates = {'draft': 'Borrador', 'confirmed': 'Confirmado', 'planned': 'Planificado', 'progress': 'En proceso', 'done': 'Hecho', 'cancel': 'Cancelado'}
+
+                production_order = http.request.env['mrp.production'].search([('id', '=', op_id)])
+                                        
+                state = transformStates.get(production_order['state'], 'No State')
+                raw_materials = list()
+
+                if state is not "Borrador":
+                    lista_materiales = http.request.env['stock.move'].search([('raw_material_production_id', '=', production_order['id'])])
+                    
+                else:
+                    lista_materiales = http.request.env['mrp.bom.line'].search([('bom_id', '=', production_order['bom_id'].id)])
+
+                for raw_material in lista_materiales:
+                    lot = http.request.env['stock.move.line'].search([('move_id', '=', raw_material['id'])])
+
+                    if len(lot) > 0:
+                        done = raw_material['quantity_done'] if state is not 'Borrador' else 0.0
+                        reserved = raw_material['reserved_availability'] if state is not 'Borrador' else 0.0
+                        lot_line = lot[0].id if state is not 'Borrador' else -1
+                        lot_id = lot[0].lot_id.id if state is not 'Borrador' else -1
+                        lot_name = lot[0].lot_id.name if state is not 'Borrador' else ""
+                    else:
+                        reserved = 0.0; done = 0.0; lot_line = -1; lot_id = -1; lot_name = ""
+                    
+                    quantity = raw_material['product_uom_qty'] if state is not 'Borrador' else raw_material['product_qty']
+                    
+                    if lot_id == False or lot_name == False:
+                        lot_id = -1
+                        lot_name = ""
+                    
+                    current_rm = {
+                        "id": raw_material['id'],
+                        "product_id": raw_material['product_id'].id,
+                        "name": raw_material['product_id'].name,
+                        "quantity": quantity,
+                        "unity": raw_material['product_uom'].name,
+                        "reserved": reserved,
+                        "done": done,
+                        "lot_line": lot_line,
+                        "lot_id": lot_id,
+                        "lot_name": lot_name
+                    }
+
+                    raw_materials.append(current_rm)
+
+                clients = []
+                clientes = http.request.env['irco.clientes.production'].search([('mrp_production_id', '=', production_order['id'])])
+                for cliente in clientes:
+                    dieta = ""
+                    if cliente['dieta_id'].id:
+                        dieta = cliente['dieta_id'].name
+                    obj = {
+                        "id": cliente['partner_id'].id,
+                        "name": cliente['partner_id'].name,
+                        "diet_name": dieta,
+                        "quantity": cliente["cant_prod"]
+                    }
+                    clients.append(obj)
+
+                response = {
+                    "id": production_order['id'],
+                    "name": production_order['name'],
+                    "quantity": int(production_order['product_qty']),
+                    "quantity_produced": production_order['cant_producida'],
+                    "product": production_order['product_id'].name,
+                    "product_id": production_order['product_id'].product_tmpl_id.id,
+                    "product_name": production_order['product_id'].name,
+                    "clients": clients,
+                    "state": state,
+                    "raw_materials": raw_materials,
+                    "date": str(production_order['date_planned_start'].strftime("%d/%m/%Y")),
+                    "date_US": str(production_order['date_planned_start'].strftime("%Y/%m/%d")),
+                }
+
+        except Exception as e:
+            response = [{
+                "message": {
+                    "successful": False,
+                    "message": "Fallo al recuperar las órdenes de producción",
+                    "error": str(e)
+                }    
+            }]
+
+            _logger.error(str(e))
+        
+        response = json.dumps(response)
+
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
