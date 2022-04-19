@@ -107,19 +107,45 @@ class Commensals(http.Controller):
         fecha_formateada = aux[-1] + '-' + aux[1] + '-' + aux[0]
 
         try:
-            lineas = list()
+            comprobar = []
+            lineas = []
             for i in range(len(diets_id)):
                 if int(quantitys[i]) > 0:
+                    
+                    vals={
+                        "menu": diets_id[i], 
+                        "cantidad_pedida": quantitys[i],
+                    }
+                    comprobar.append(vals)
+                    
                     lineas.append((0, 0, { "menu_id": diets_id[i], "cantidad_pedida": quantitys[i] }))
             
-            nuevo_pedido = http.request.env['irco.pedidos.catering.manual'].create({
-                "fecha_servicio": str(fecha_formateada),
-                "partner_id": id_cliente,
-                "menus_ids": lineas,
-            })
-                  
-            response = {'successful': True, 'message': 'Se han añadido los menús satisfactoriamente', 'error': ''}
-            
+            # Consulta previa
+            p_igual = False
+            buscar_orden = http.request.env['irco.pedidos.catering.manual'].search([('partner_id', '=', id_cliente), ('fecha_servicio', '=', fecha_formateada)], order="id desc", limit=1)
+            for orden in buscar_orden:
+                if len(orden.menus_ids)==len(comprobar):
+                    contador = 0
+                    for menu in orden.menus_ids:
+                        if menu.menu_id.id == int(comprobar[contador]["menu"]) and menu.cantidad_pedida == int(comprobar[contador]["cantidad_pedida"]):
+                            p_igual = True
+                        else: 
+                            p_igual = False
+                            break
+
+                        contador += 1
+
+            if p_igual == False:
+                nuevo_pedido = http.request.env['irco.pedidos.catering.manual'].create({
+                    "fecha_servicio": str(fecha_formateada),
+                    "partner_id": id_cliente,
+                    "menus_ids": lineas,
+                })
+
+                response = {'successful': True, 'message': 'Se han añadido los menús satisfactoriamente', 'error': ''}
+            else:
+                response = {'successful': True, 'message': 'Este menú ya ha sido añadido', 'error': ''}
+
         except Exception as e:
             response = {'successful': False, 'message': 'No se han podido añadir los menús', 'error': str(e)}
         

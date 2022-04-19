@@ -1142,23 +1142,24 @@ class OdooController(http.Controller):
         
         response = json.dumps(response)
         return Response(response, content_type = 'application/json;charset=utf-8', status = 200)
-
-        # Endpoint (Modificar lineas de lote) (stock.move.line)
+    
     @http.route('/api/modify/lot/line', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
     def modificar_lotes_tabla(self, **post):
-        lotline = int(post.get('lotline'))
-        lotid = int(post.get('lotid'))
-        quantity = float(post.get('quantity'))
+        lotlines = str(post.get('lotline')).split("-")
+        quantitys = str(post.get('quantitys')).split("-")
 
         try:
-            linea_lote = http.request.env['stock.move.line'].search([('id', '=', lotline)]).write({
-                'lot_id': lotid,
-                'qty_done': quantity,
-            })
+            i = 0
+            for lotline in lotlines:
+                http.request.env['stock.move.line'].search([('id', '=', int(lotline))]).write({
+                    'qty_done': float(quantitys[i]),
+                })
+                i += 1
             
-            response = {'successful': True, 'message': 'Se ha modificado la linea de lote satisfactoriamente', 'error': ''}
+            response = {'successful': True, 'message': 'Se han actualizado las cantidades satisfactoriamente', 'error': ''}
+        
         except Exception as e:
-            response = {'successful': False, 'message': 'No se ha podido modificar la linea de lote', 'error': str(e)}
+            response = {'successful': False, 'message': 'No se ha podido modificar las cantidades', 'error': str(e)}
             _logger.error(str(e))
         
         response = json.dumps(response)
@@ -1167,15 +1168,16 @@ class OdooController(http.Controller):
     # Endpoint (Eliminar lineas de lote) (stock.move.line)
     @http.route('/api/delete/lot/line', type='http', auth='user', cors=CORS, methods=['POST'], csrf=False)
     def eliminar_lotes_tabla(self, **post):
-        lotline = int(post.get('lotline'))
+        lotlines = str(post.get('lotline')).split("-")
         try:
-            lotes_afectados = http.request.env['stock.move.line'].search([('id', '=', lotline)])
-            for lote in lotes_afectados:
-                lote.unlink()
+            for lotline in lotlines:
+                lotes_afectados = http.request.env['stock.move.line'].search([('id', '=', int(lotline))])
+                for lote in lotes_afectados:
+                    lote.unlink()
             
-            response = {'successful': True, 'message': 'Se ha eliminado la linea de lote satisfactoriamente', 'error': ''}
+            response = {'successful': True, 'message': 'Se han eliminados los lotes satisfactoriamente', 'error': ''}
         except Exception as e:
-            response = {'successful': False, 'message': 'No se ha podido eliminar la linea del lote', 'error': str(e)}
+            response = {'successful': False, 'message': 'No se ha podido eliminar los lotes', 'error': str(e)}
             _logger.error(str(e))
         
         response = json.dumps(response)
